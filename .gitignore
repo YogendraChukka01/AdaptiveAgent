@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+chroma_data/
+node_modules/
+.next/
+.env
+*.egg
+.DS_Store
+*.log
+dist/
+build/

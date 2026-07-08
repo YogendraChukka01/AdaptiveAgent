@@ -1,0 +1,27 @@
+{
+  "dashboard": {
+    "title": "SafeAgent Monitoring",
+    "panels": [
+      {
+        "title": "Request Latency (p50/p95/p99)",
+        "type": "graph",
+        "targets": [{"expr": "histogram_quantile(0.5, rate(request_duration_seconds_bucket[5m]))"}]
+      },
+      {
+        "title": "Confidence Scores",
+        "type": "graph",
+        "targets": [{"expr": "avg(confidence_score)"}]
+      },
+      {
+        "title": "Risk Scores",
+        "type": "graph",
+        "targets": [{"expr": "avg(risk_score)"}]
+      },
+      {
+        "title": "Error Rate",
+        "type": "graph",
+        "targets": [{"expr": "rate(errors_total[5m])"}]
+      }
+    ]
+  }
+}
