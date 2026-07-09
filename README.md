@@ -7,6 +7,8 @@
 
 AdaptiveAgent is a secure, explainable, and trustworthy agentic RAG platform for building context-aware assistants on top of private knowledge bases.
 
+The current implementation has been verified locally with the backend test suite and a production frontend build.
+
 ## Table of contents
 
 - [Overview](#overview)
@@ -70,10 +72,9 @@ cd AdaptiveAgent
 ### 2. Backend setup
 
 ```bash
-cd backend
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e backend[dev]
 ```
 
 ### 3. Frontend setup
@@ -122,7 +123,10 @@ Key variables include:
 
 ```bash
 # Backend tests
-cd backend && python -m pytest tests -v
+cd backend && python -m pytest -q
+
+# Frontend build
+cd frontend && npm run build
 
 # Frontend linting
 cd frontend && npm run lint
@@ -134,6 +138,20 @@ cd frontend && npm run typecheck
 ## Testing
 
 The project includes backend tests under the backend test suite. Add or extend tests for:
+
+- planner fallback behavior when the LLM backend is unavailable
+- retrieval and ranking behavior
+- graph node transitions
+- risk and confidence scoring decisions
+- chat API streaming responses
+
+Verified locally with:
+
+```bash
+cd backend && python -m pytest -q
+cd frontend && npm run build
+```
+
 
 - retrieval and ranking behavior
 - graph node transitions
