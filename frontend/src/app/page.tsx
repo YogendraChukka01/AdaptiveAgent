@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import { ChatMessage, streamChat, sendMessage, uploadDocument } from "@/lib/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ChatMessage, streamChat, uploadDocument } from "@/lib/api";
 import { MessageBubble } from "@/components/chat/MessageBubble";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { SidePanel } from "@/components/dashboard/SidePanel";
@@ -23,57 +23,55 @@ export default function Home() {
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
     setIsLoading(true);
-    setLastResult(null);
 
-    if ("ai" !== "ignore") {
-      const assistantMsg: ChatMessage = { role: "assistant", content: "" };
-      setMessages((prev) => [...prev, assistantMsg]);
+    const assistantMsg: ChatMessage = { role: "assistant", content: "" };
+    setMessages((prev) => [...prev, assistantMsg]);
 
-      try {
-        let fullResponse = "";
-        let result: any = null;
-        const gen = streamChat(updatedMessages, threadId);
-        while (true) {
-          const { value, done } = await gen.next();
-          if (done) {
-            result = value;
-            break;
-          }
-          fullResponse += value;
-          setMessages((prev) => {
-            const updated = [...prev];
-            updated[updated.length - 1] = {
-              role: "assistant",
-              content: fullResponse,
-            };
-            return updated;
-          });
+    try {
+      let fullResponse = "";
+      let result: any = null;
+      const gen = streamChat(updatedMessages, threadId);
+
+      while (true) {
+        const { value, done } = await gen.next();
+        if (done) {
+          result = value;
+          break;
         }
-
-        setLastResult(result);
-        if (result?.response) {
-          setMessages((prev) => {
-            const updated = [...prev];
-            updated[updated.length - 1] = {
-              role: "assistant",
-              content: result.response,
-            };
-            return updated;
-          });
-        }
-      } catch (err) {
+        fullResponse += value;
         setMessages((prev) => {
           const updated = [...prev];
           updated[updated.length - 1] = {
             role: "assistant",
-            content: "Sorry, an error occurred while processing your request.",
+            content: fullResponse,
           };
           return updated;
         });
       }
-    }
 
-    setIsLoading(false);
+      setLastResult(result);
+      if (result?.response) {
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            role: "assistant",
+            content: result.response,
+          };
+          return updated;
+        });
+      }
+    } catch (err) {
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = {
+          role: "assistant",
+          content: "Sorry, an error occurred while processing your request.",
+        };
+        return updated;
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }, [messages, threadId]);
 
   const handleUpload = useCallback(async (file: File) => {

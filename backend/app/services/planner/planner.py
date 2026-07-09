@@ -18,18 +18,21 @@ Keep plans to 3-5 steps maximum. Never include unsafe actions."""
 
 
 def create_plan(query: str) -> list[str]:
-    llm = get_llm(temperature=0.1, max_tokens=512)
-    messages = [
-        SystemMessage(content=SYSTEM_PROMPT),
-        HumanMessage(content=f"Query: {query}"),
-    ]
-    response = llm.invoke(messages)
-
     try:
-        plan = json.loads(response.content.strip())
-        if isinstance(plan, list) and all(isinstance(s, str) for s in plan):
-            return plan[:5]
-    except (json.JSONDecodeError, ValueError):
+        llm = get_llm(temperature=0.1, max_tokens=512)
+        messages = [
+            SystemMessage(content=SYSTEM_PROMPT),
+            HumanMessage(content=f"Query: {query}"),
+        ]
+        response = llm.invoke(messages)
+
+        try:
+            plan = json.loads(response.content.strip())
+            if isinstance(plan, list) and all(isinstance(s, str) for s in plan):
+                return plan[:5]
+        except (json.JSONDecodeError, ValueError, TypeError):
+            pass
+    except (ImportError, ModuleNotFoundError, RuntimeError, ValueError, TypeError):
         pass
 
     return ["retrieve", "analyze", "verify", "respond"]
