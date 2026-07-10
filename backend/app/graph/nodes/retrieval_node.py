@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import logging
+
 from app.models.state import AgentState
 from app.services.retrieval.embeddings.embedder import embed_query
 from app.services.retrieval.hybrid_search import hybrid_search
+
+logger = logging.getLogger(__name__)
 
 
 def retrieval_node(state: AgentState) -> dict:
@@ -16,8 +20,12 @@ def retrieval_node(state: AgentState) -> dict:
     dense_k = 20 + state.retry_count * 10
     final_k = min(5 + state.retry_count * 3, 20)
 
-    query_embedding = embed_query(query)
-    results = hybrid_search(query, query_embedding, dense_k=dense_k, final_k=final_k)
+    try:
+        query_embedding = embed_query(query)
+        results = hybrid_search(query, query_embedding, dense_k=dense_k, final_k=final_k)
+    except Exception:
+        logger.exception("Retrieval failed for query: %s", query[:100])
+        return {"retrieved_docs": [], "retrieval_scores": []}
 
     docs = []
     scores = []
