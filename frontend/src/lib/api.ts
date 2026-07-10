@@ -1,6 +1,7 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export interface ChatMessage {
+  id?: string;
   role: "user" | "assistant";
   content: string;
 }
@@ -41,6 +42,7 @@ export type StreamEvent =
 export async function* streamChat(
   messages: ChatMessage[],
   threadId: string,
+  signal?: AbortSignal,
 ): AsyncGenerator<StreamEvent, void> {
   const response = await fetch(`${API_BASE}/chat`, {
     method: "POST",
@@ -50,6 +52,7 @@ export async function* streamChat(
       thread_id: threadId,
       stream: true,
     }),
+    signal,
   });
 
   if (!response.ok) throw new Error(`Chat failed: ${response.status}`);
@@ -83,14 +86,26 @@ export async function* streamChat(
   }
 }
 
+function extractSSEData(block: string, eventPrefix: string): string | null {
+  const marker = `event: ${eventPrefix}\ndata: `;
+  const idx = block.indexOf(marker);
+  if (idx !== 0) return null;
+  return block.slice(marker.length);
+}
+
 function processBlock(block: string): StreamEvent[] {
   const events: StreamEvent[] = [];
   try {
-    if (block.startsWith("event: token\ndata: ")) {
-      const data = JSON.parse(block.replace("event: token\ndata: ", ""));
+    const tokenData = extractSSEData(block, "token");
+    if (tokenData !== null) {
+      const data = JSON.parse(tokenData);
       events.push({ type: "token", token: data.token });
-    } else if (block.startsWith("event: complete\ndata: ")) {
-      const data = JSON.parse(block.replace("event: complete\ndata: ", ""));
+      return events;
+    }
+
+    const completeData = extractSSEData(block, "complete");
+    if (completeData !== null) {
+      const data = JSON.parse(completeData);
       events.push({
         type: "complete",
         result: {
@@ -106,16 +121,24 @@ function processBlock(block: string): StreamEvent[] {
           approval_status: data.approval_status,
         },
       });
-    } else if (block.startsWith("event: needs_approval\ndata: ")) {
-      const data = JSON.parse(
-        block.replace("event: needs_approval\ndata: ", ""),
-      );
-      events.push({ type: "needs_approval", payload: data as ApprovalPayload });
-    } else if (block.startsWith("event: error\ndata: ")) {
-      const data = JSON.parse(block.replace("event: error\ndata: ", ""));
+      return events;
+    }
+
+    const approvalData = extractSSEData(block, "needs_approval");
+    if (approvalData !== null) {
+      const data = JSON.parse(approvalData);
+      if (data && typeof data.thread_id === "string") {
+        events.push({ type: "needs_approval", payload: data as ApprovalPayload });
+      } else {
+        console.warn("Invalid approval payload, skipping:", approvalData.slice(0, 100));
+      }
+      return events;
+    }
+
+    const errorData = extractSSEData(block, "error");
+    if (errorData !== null) {
+      const data = JSON.parse(errorData);
       throw new Error(data.error || "Stream error from server");
-    } else if (block.startsWith("event: done")) {
-      // stream finished
     }
   } catch (err) {
     if (err instanceof SyntaxError) {
@@ -130,11 +153,13 @@ function processBlock(block: string): StreamEvent[] {
 export async function approveAction(
   threadId: string,
   action: "approve" | "reject",
+  signal?: AbortSignal,
 ): Promise<ChatResult> {
   const response = await fetch(`${API_BASE}/chat/approve`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ thread_id: threadId, action }),
+    signal,
   });
 
   if (!response.ok) throw new Error(`Approval failed: ${response.status}`);
@@ -144,6 +169,7 @@ export async function approveAction(
 export async function uploadDocument(
   file: File,
   threadId: string = "default",
+  signal?: AbortSignal,
 ): Promise<{ filename: string; chunks: number; total_characters: number }> {
   const formData = new FormData();
   formData.append("file", file);
@@ -152,6 +178,7 @@ export async function uploadDocument(
   const response = await fetch(`${API_BASE}/upload`, {
     method: "POST",
     body: formData,
+    signal,
   });
 
   if (!response.ok) throw new Error(`Upload failed: ${response.status}`);

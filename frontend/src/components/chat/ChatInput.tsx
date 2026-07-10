@@ -6,6 +6,14 @@ interface Props {
   disabled: boolean;
 }
 
+const ACCEPTED_TYPES = new Set([
+  "text/plain",
+  "text/markdown",
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
 export function ChatInput({ onSend, onUpload, disabled }: Props) {
   const [input, setInput] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -31,10 +39,29 @@ export function ChatInput({ onSend, onUpload, disabled }: Props) {
     [handleSubmit],
   );
 
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setInput(e.target.value);
+    },
+    [],
+  );
+
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (file) onUpload(file);
+      if (!file) return;
+
+      if (!ACCEPTED_TYPES.has(file.type) && !file.name.match(/\.(txt|md|pdf|docx)$/i)) {
+        alert("Unsupported file type. Please upload a .txt, .md, .pdf, or .docx file.");
+        return;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        alert("File too large. Maximum size is 10 MB.");
+        return;
+      }
+
+      onUpload(file);
+      e.target.value = "";
     },
     [onUpload],
   );
@@ -77,7 +104,7 @@ export function ChatInput({ onSend, onUpload, disabled }: Props) {
         <input
           type="text"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           placeholder="Ask a question..."
           disabled={disabled}

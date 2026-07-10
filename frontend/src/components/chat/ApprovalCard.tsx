@@ -19,6 +19,7 @@ export function ApprovalCard({ payload, onResolved }: Props) {
     setError(null);
     try {
       const result = await approveAction(payload.thread_id, action);
+      setPending(false);
       onResolved(result);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Approval failed");

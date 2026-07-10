@@ -21,10 +21,17 @@ export default function Home() {
   const [showPanel, setShowPanel] = useState(false);
   const [approval, setApproval] = useState<ApprovalPayload | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   const applyResult = useCallback((result: ChatResult) => {
     setLastResult(result);
@@ -32,6 +39,7 @@ export default function Home() {
       if (prev.length === 0) return prev;
       const updated = [...prev];
       updated[updated.length - 1] = {
+        ...updated[updated.length - 1],
         role: "assistant",
         content: result.response || "(no response)",
       };
@@ -40,25 +48,30 @@ export default function Home() {
   }, []);
 
   const handleSend = useCallback(async (content: string) => {
-    const userMsg: ChatMessage = { role: "user", content };
-    const updatedMessages = [...messages, userMsg];
-    setMessages(updatedMessages);
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", content };
+    const assistantMsg: ChatMessage = { id: crypto.randomUUID(), role: "assistant", content: "" };
+
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setIsLoading(true);
     setApproval(null);
 
-    const assistantMsg: ChatMessage = { role: "assistant", content: "" };
-    setMessages((prev) => [...prev, assistantMsg]);
-
     try {
       let fullResponse = "";
-      const gen = streamChat(updatedMessages, threadId);
+      const historyToSend = [...messages, userMsg];
+      const gen = streamChat(historyToSend, threadId, controller.signal);
 
       for await (const ev of gen) {
+        if (controller.signal.aborted) break;
         if (ev.type === "token") {
           fullResponse += ev.token;
           setMessages((prev) => {
             const updated = [...prev];
             updated[updated.length - 1] = {
+              ...updated[updated.length - 1],
               role: "assistant",
               content: fullResponse,
             };
@@ -71,16 +84,18 @@ export default function Home() {
         }
       }
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       setMessages((prev) => {
         const updated = [...prev];
         updated[updated.length - 1] = {
+          ...updated[updated.length - 1],
           role: "assistant",
           content: "Sorry, an error occurred while processing your request.",
         };
         return updated;
       });
     } finally {
-      setIsLoading(false);
+      if (!controller.signal.aborted) setIsLoading(false);
     }
   }, [messages, threadId, applyResult]);
 
@@ -90,13 +105,14 @@ export default function Home() {
       const msg = `📄 Uploaded **${result.filename}** (${result.chunks} chunks indexed)`;
       setMessages((prev) => [
         ...prev,
-        { role: "user", content: `Uploaded: ${result.filename}` },
-        { role: "assistant", content: msg },
+        { id: crypto.randomUUID(), role: "user", content: `Uploaded: ${result.filename}` },
+        { id: crypto.randomUUID(), role: "assistant", content: msg },
       ]);
     } catch (err) {
       setMessages((prev) => [
         ...prev,
         {
+          id: crypto.randomUUID(),
           role: "assistant",
           content: `Upload failed: ${err instanceof Error ? err.message : "Unknown error"}`,
         },
@@ -128,8 +144,8 @@ export default function Home() {
               </div>
             </div>
           )}
-          {messages.map((msg, i) => (
-            <MessageBubble key={i} message={msg} />
+          {messages.map((msg) => (
+            <MessageBubble key={msg.id} message={msg} />
           ))}
           {approval && (
             <ApprovalCard
