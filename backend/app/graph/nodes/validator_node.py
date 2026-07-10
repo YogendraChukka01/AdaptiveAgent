@@ -10,12 +10,16 @@ def query_validator(state: AgentState) -> dict:
     result = validate_query(query)
 
     if not result.is_safe:
+        safety_msg = (
+            "I cannot process this request as it was identified as unsafe. "
+            f"Issues detected: {', '.join(result.issues)}"
+        )
         return {
             "is_safe": False,
             "safety_issues": result.issues,
             "safety_confidence": result.confidence,
-            "final_response": "I cannot process this request as it was identified as unsafe. "
-            f"Issues detected: {', '.join(result.issues)}",
+            "error": safety_msg,
+            "final_response": safety_msg,
         }
 
     return {

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
+
 from langchain_core.messages import HumanMessage
 
 from app.models.state import AgentState
 from app.services.llm import get_llm
+
+logger = logging.getLogger(__name__)
 
 
 def _refine_query(query: str, attempt: int, evidence_missing: list[str]) -> str:
@@ -27,7 +31,7 @@ def _refine_query(query: str, attempt: int, evidence_missing: list[str]) -> str:
         if out:
             return out
     except Exception:
-        pass
+        logger.debug("LLM refine failed, using deterministic fallback")
 
     # Deterministic fallback: bias the query toward what was missing, else
     # broaden it with generic context terms.

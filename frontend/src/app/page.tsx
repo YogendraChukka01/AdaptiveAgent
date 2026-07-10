@@ -17,7 +17,7 @@ export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [threadId] = useState(() => crypto.randomUUID());
-  const [lastResult, setLastResult] = useState<any>(null);
+  const [lastResult, setLastResult] = useState<ChatResult | null>(null);
   const [showPanel, setShowPanel] = useState(false);
   const [approval, setApproval] = useState<ApprovalPayload | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -29,6 +29,7 @@ export default function Home() {
   const applyResult = useCallback((result: ChatResult) => {
     setLastResult(result);
     setMessages((prev) => {
+      if (prev.length === 0) return prev;
       const updated = [...prev];
       updated[updated.length - 1] = {
         role: "assistant",

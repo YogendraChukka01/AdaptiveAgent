@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import logging
+
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def _install_cache() -> None:
@@ -17,8 +21,7 @@ def _install_cache() -> None:
 
         set_llm_cache(InMemoryCache())
     except Exception:
-        # Caching is a best-effort optimisation; never fail startup over it.
-        pass
+        logger.debug("LLM cache setup failed; caching disabled")
 
 
 _install_cache()

@@ -104,7 +104,6 @@ def _state(**kw):
         safety_issues=[],
         safety_confidence=0.0,
         plan=[],
-        current_plan_step=0,
         retrieved_docs=[],
         retrieval_scores=[],
         evidence_coverage=0.0,
@@ -126,7 +125,6 @@ def _state(**kw):
         max_steps=10,
         error=None,
         start_time=0.0,
-        end_time=0.0,
     )
     base.update(kw)
     return AgentState(**base)
@@ -154,7 +152,6 @@ def _state(**kw):
         (_state(), "approval"),
         # approval
         (_state(approval_status="approved"), "tools"),
-        (_state(approval_status="not_required"), "tools"),
         (_state(approval_status="rejected"), "response"),
         (_state(approval_status="pending"), "response"),
         # tools
@@ -201,7 +198,8 @@ def test_routing_matrix(state, exp):
         route_after_validation,
     )
 
-    assert route_after_validation(state) == exp if exp in ("error", "planner") else True
+    if exp in ("error", "planner"):
+        assert route_after_validation(state) == exp
     mapping = {
         "error": route_after_validation(state),
         "planner": route_after_validation(state),
@@ -224,6 +222,74 @@ def test_routing_matrix(state, exp):
     }
     if exp in mapping:
         assert mapping[exp] == exp, (exp, mapping[exp])
+
+
+# ---------------------------------------------------------------------------
+# 3b. route_after_tools tests
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "state,exp",
+    [
+        # error set -> error
+        (
+            _state(
+                error="boom",
+                tool_calls=[ToolCallRecord(tool="x", input="{}", success=False)],
+                approval_status="approved",
+            ),
+            "error",
+        ),
+        # step_count >= max_steps -> response (circuit breaker)
+        (
+            _state(
+                tool_calls=[ToolCallRecord(tool="x", input="{}", success=False)],
+                approval_status="approved",
+                step_count=10,
+                max_steps=10,
+            ),
+            "response",
+        ),
+        # failed tool -> refine
+        (
+            _state(
+                tool_calls=[ToolCallRecord(tool="x", input="{}", success=False)],
+                approval_status="approved",
+                step_count=1,
+                max_steps=10,
+            ),
+            "refine",
+        ),
+        # all tools succeeded -> response
+        (
+            _state(
+                tool_calls=[ToolCallRecord(tool="x", input="{}", success=True)],
+                approval_status="approved",
+                step_count=1,
+                max_steps=10,
+            ),
+            "response",
+        ),
+        # mixed success/failure -> refine
+        (
+            _state(
+                tool_calls=[
+                    ToolCallRecord(tool="x", input="{}", success=True),
+                    ToolCallRecord(tool="y", input="{}", success=False),
+                ],
+                approval_status="approved",
+                step_count=1,
+                max_steps=10,
+            ),
+            "refine",
+        ),
+        # no tool calls -> response
+        (_state(tool_calls=[], approval_status="approved"), "response"),
+    ],
+)
+def test_route_after_tools(state, exp):
+    from app.graph.edges.conditional import route_after_tools
+
+    assert route_after_tools(state) == exp
 
 
 # ---------------------------------------------------------------------------

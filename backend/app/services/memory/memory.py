@@ -21,6 +21,11 @@ class MemoryManager:
     async def get_redis(self) -> redis.Redis:
         return await self._get_redis()
 
+    async def close(self):
+        if self._redis is not None:
+            await self._redis.aclose()
+            self._redis = None
+
     async def store_conversation(
         self,
         thread_id: str,

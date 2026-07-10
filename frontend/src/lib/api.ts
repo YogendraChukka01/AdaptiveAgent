@@ -62,75 +62,69 @@ export async function* streamChat(
 
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
+    if (done) {
+      if (buffer.trim()) {
+        for (const line of processBlock(buffer.trim())) {
+          yield line;
+        }
+      }
+      break;
+    }
 
     buffer += decoder.decode(value, { stream: true });
     const blocks = buffer.split("\n\n");
     buffer = blocks.pop() || "";
 
-    for (const line of blocks) {
-      if (line.startsWith("event: token\ndata: ")) {
-        const data = JSON.parse(line.replace("event: token\ndata: ", ""));
-        yield { type: "token", token: data.token };
-      } else if (line.startsWith("event: complete\ndata: ")) {
-        const data = JSON.parse(line.replace("event: complete\ndata: ", ""));
-        yield {
-          type: "complete",
-          result: {
-            needs_approval: false,
-            response: data.response,
-            citations: data.citations || [],
-            confidence_score: data.confidence_score,
-            risk_score: data.risk_score,
-            risk_level: data.risk_level,
-            reasoning_path: data.reasoning_path,
-            step_count: data.step_count,
-            approval_status: data.approval_status,
-          } as ChatResult,
-        };
-      } else if (line.startsWith("event: needs_approval\ndata: ")) {
-        const data = JSON.parse(line.replace("event: needs_approval\ndata: ", ""));
-        yield { type: "needs_approval", payload: data as ApprovalPayload };
-      } else if (line.startsWith("event: done")) {
-        return;
+    for (const block of blocks) {
+      for (const evt of processBlock(block)) {
+        yield evt;
       }
     }
   }
 }
 
-export async function sendMessage(
-  messages: ChatMessage[],
-  threadId: string,
-): Promise<ChatResult> {
-  const response = await fetch(`${API_BASE}/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
-      thread_id: threadId,
-      stream: false,
-    }),
-  });
-
-  if (!response.ok) throw new Error(`Chat failed: ${response.status}`);
-  return response.json();
-}
-
-export async function uploadDocument(
-  file: File,
-  threadId: string = "default",
-): Promise<{ filename: string; chunks: number }> {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("thread_id", threadId);
-
-  const response = await fetch(`${API_BASE}/upload`, {
-    method: "POST",
-    body: formData,
-  });
-
-  if (!response.ok) throw new Error(`Upload failed: ${response.status}`);
-  return response.json();
+function processBlock(block: string): StreamEvent[] {
+  const events: StreamEvent[] = [];
+  try {
+    if (block.startsWith("event: token\ndata: ")) {
+      const data = JSON.parse(block.replace("event: token\ndata: ", ""));
+      events.push({ type: "token", token: data.token });
+    } else if (block.startsWith("event: complete\ndata: ")) {
+      const data = JSON.parse(block.replace("event: complete\ndata: ", ""));
+      events.push({
+        type: "complete",
+        result: {
+          needs_approval: false,
+          thread_id: data.thread_id,
+          response: data.response,
+          citations: data.citations || [],
+          confidence_score: data.confidence_score,
+          risk_score: data.risk_score,
+          risk_level: data.risk_level,
+          reasoning_path: data.reasoning_path,
+          step_count: data.step_count,
+          approval_status: data.approval_status,
+        },
+      });
+    } else if (block.startsWith("event: needs_approval\ndata: ")) {
+      const data = JSON.parse(
+        block.replace("event: needs_approval\ndata: ", ""),
+      );
+      events.push({ type: "needs_approval", payload: data as ApprovalPayload });
+    } else if (block.startsWith("event: error\ndata: ")) {
+      const data = JSON.parse(block.replace("event: error\ndata: ", ""));
+      throw new Error(data.error || "Stream error from server");
+    } else if (block.startsWith("event: done")) {
+      // stream finished
+    }
+  } catch (err) {
+    if (err instanceof SyntaxError) {
+      console.warn("Malformed SSE data, skipping block:", block.slice(0, 100));
+    } else {
+      throw err;
+    }
+  }
+  return events;
 }
 
 export async function approveAction(
@@ -147,14 +141,19 @@ export async function approveAction(
   return response.json();
 }
 
-export async function getAuditLogs(
-  limit = 50,
-  threadId?: string,
-): Promise<any[]> {
-  const params = new URLSearchParams({ limit: limit.toString() });
-  if (threadId) params.set("thread_id", threadId);
+export async function uploadDocument(
+  file: File,
+  threadId: string = "default",
+): Promise<{ filename: string; chunks: number; total_characters: number }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("thread_id", threadId);
 
-  const response = await fetch(`${API_BASE}/audit?${params}`);
-  if (!response.ok) throw new Error(`Audit failed: ${response.status}`);
+  const response = await fetch(`${API_BASE}/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) throw new Error(`Upload failed: ${response.status}`);
   return response.json();
 }

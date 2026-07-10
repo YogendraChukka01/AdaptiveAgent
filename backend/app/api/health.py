@@ -27,9 +27,12 @@ async def health_check():
         logger.warning("Ollama health check failed: %s", e)
 
     try:
+        import asyncio
+
         from app.services.retrieval.vector_store.chroma_store import get_chroma_client
 
-        get_chroma_client().heartbeat()
+        client = get_chroma_client()
+        await asyncio.to_thread(client.heartbeat)
         chroma_ok = True
     except Exception as e:
         logger.warning("ChromaDB health check failed: %s", e)

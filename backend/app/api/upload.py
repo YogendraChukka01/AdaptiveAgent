@@ -1,29 +1,32 @@
 from __future__ import annotations
 
+import logging
 import os
 import uuid
 
-from fastapi import APIRouter, UploadFile
+from fastapi import APIRouter, HTTPException, UploadFile
 
 from app.services.retrieval.embeddings.embedder import embed_texts
 from app.services.retrieval.vector_store.chroma_store import add_documents
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/upload", tags=["upload"])
 
 ALLOWED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx"}
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
 
 def _extract_text(file: UploadFile) -> str:
     content = file.file.read()
     if file.filename and file.filename.endswith(".pdf"):
         try:
-            import io
-
             import fitz
 
             doc = fitz.open(stream=content, filetype="pdf")
-            text = "\n".join(page.get_text() for page in doc)
-            doc.close()
+            try:
+                text = "\n".join(page.get_text() for page in doc)
+            finally:
+                doc.close()
             return text
         except ImportError:
             return content.decode("utf-8", errors="ignore")
@@ -42,6 +45,8 @@ def _extract_text(file: UploadFile) -> str:
 
 
 def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]:
+    if overlap >= chunk_size:
+        overlap = chunk_size // 4
     words = text.split()
     chunks = []
     start = 0
@@ -64,6 +69,16 @@ async def upload_document(file: UploadFile):
     if ext not in ALLOWED_EXTENSIONS:
         return {"error": f"Unsupported file type: {ext}. Allowed: {ALLOWED_EXTENSIONS}"}
 
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024 * 1024)} MB",
+        )
+
+    import io as _io
+
+    file.file = _io.BytesIO(content)
     text = _extract_text(file)
     chunks = _chunk_text(text)
 

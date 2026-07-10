@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.core.config import settings
 from app.models.state import AgentState
 
 _REFUSAL = "I cannot provide this response as it may violate safety guidelines."
@@ -22,7 +23,7 @@ def _is_safe_output(text: str) -> bool:
 def response_node(state: AgentState) -> dict:
     response = state.final_response
 
-    if not response and state.evidence_coverage < 0.5:
+    if not response and state.evidence_coverage < settings.evidence_min_coverage:
         response = "I don't have sufficient evidence to answer this question reliably."
 
     if not response:

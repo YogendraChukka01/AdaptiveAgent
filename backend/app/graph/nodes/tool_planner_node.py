@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.models.state import AgentState, ToolCallRecord
 from app.services.tools.tool_registry import AVAILABLE_TOOLS
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """You are a tool-selection agent for a safe RAG assistant.
 Given the user query and the plan, decide which external tools (if any) are required.
@@ -58,6 +61,7 @@ def plan_tool_calls(query: str, plan: list[str]) -> list[ToolCallRecord]:
             )
         return calls
     except Exception:
+        logger.exception("Tool planning failed")
         return []
 
 

@@ -8,7 +8,7 @@ def planner_node(state: AgentState) -> dict:
     query = state.sanitized_query or state.query
 
     if not query.strip():
-        return {"plan": [], "current_plan_step": 0}
+        return {"plan": []}
 
     plan = create_plan(query)
-    return {"plan": plan, "current_plan_step": 0}
+    return {"plan": plan}

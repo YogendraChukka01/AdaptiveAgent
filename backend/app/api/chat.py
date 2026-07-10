@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import hmac
 import json
+import logging
 import time
+import uuid
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.errors import GraphInterrupt
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
@@ -20,6 +23,8 @@ from app.models.schemas import ApprovalRequest, ChatRequest
 from app.models.state import AgentState
 from app.services.audit.audit import record_audit
 from app.services.memory.memory import memory_manager
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -93,7 +98,6 @@ async def _stream_events(
     state: AgentState,
     config: dict,
     thread_id: str,
-    history: list | None = None,
 ):
     interrupted = False
     try:
@@ -113,9 +117,23 @@ async def _stream_events(
                 data = event.get("data", {})
                 chunk = data.get("chunk", "")
                 if chunk and hasattr(chunk, "content"):
-                    yield f"event: token\ndata: {json.dumps({'token': chunk.content})}\n\n"
+                    content = chunk.content
+                    if isinstance(content, list):
+                        text_parts = [
+                            b.get("text", "")
+                            for b in content
+                            if isinstance(b, dict) and b.get("type") == "text"
+                        ]
+                        content = "".join(text_parts)
+                    if content:
+                        yield f"event: token\ndata: {json.dumps({'token': content})}\n\n"
     except GraphInterrupt:
         interrupted = True
+    except Exception:
+        logger.exception("Graph execution failed for thread %s", thread_id)
+        yield f"event: error\ndata: {json.dumps({'error': 'Internal error during processing'})}\n\n"
+        yield "event: done\ndata: [DONE]\n\n"
+        return
 
     snapshot = await graph.aget_state(config)
 
@@ -147,7 +165,7 @@ async def _stream_events(
             "query": state.query or "",
             "response": response_text,
             "risk_score": values.get("risk_score", 0.0),
-            "risk_level": values.get("risk_level", "high"),
+            "risk_level": values.get("risk_level", "low"),
             "confidence_score": values.get("confidence_score", 0.0),
             "approval_status": values.get("approval_status", "pending"),
             "tool_calls": [
@@ -173,8 +191,20 @@ async def chat(
     request: ChatRequest,
     graph: CompiledStateGraph = Depends(get_graph),
 ):
+    if not request.thread_id:
+        request.thread_id = str(uuid.uuid4())
     thread_id = request.thread_id
-    last_message = request.messages[-1]["content"] if request.messages else ""
+
+    if not request.messages:
+        raise HTTPException(status_code=400, detail="messages must not be empty")
+
+    last_msg = request.messages[-1]
+    if "content" not in last_msg or not isinstance(last_msg["content"], str):
+        raise HTTPException(
+            status_code=400,
+            detail="Each message must have a string 'content' field",
+        )
+    last_message = last_msg["content"]
 
     config = {
         "configurable": {"thread_id": thread_id},
@@ -182,7 +212,14 @@ async def chat(
     }
 
     history = await memory_manager.get_conversation(thread_id)
-    history_messages = [HumanMessage(content=m["content"]) for m in history]
+    history_messages = []
+    for m in history:
+        role = m.get("role", "user")
+        content = m.get("content", "")
+        if role == "assistant":
+            history_messages.append(AIMessage(content=content))
+        else:
+            history_messages.append(HumanMessage(content=content))
 
     state = AgentState(
         query=last_message,
@@ -194,7 +231,7 @@ async def chat(
 
     if request.stream:
         return StreamingResponse(
-            _stream_events(graph, state, config, thread_id, history),
+            _stream_events(graph, state, config, thread_id),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
@@ -228,7 +265,7 @@ async def chat(
             "query": last_message,
             "response": values.get("final_response", ""),
             "risk_score": values.get("risk_score", 0.0),
-            "risk_level": values.get("risk_level", "high"),
+            "risk_level": values.get("risk_level", "low"),
             "confidence_score": values.get("confidence_score", 0.0),
             "approval_status": values.get("approval_status", "pending"),
             "tool_calls": [
@@ -255,7 +292,7 @@ async def _require_auth(authorization: str | None = Header(None)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
     token = authorization.removeprefix("Bearer ")
-    if token != settings.auth_jwt_secret:
+    if not hmac.compare_digest(token, settings.auth_jwt_secret):
         raise HTTPException(status_code=403, detail="Invalid API key")
     return
 

@@ -39,7 +39,7 @@ def add_documents(
         ids=ids,
         embeddings=embeddings,
         documents=documents,
-        metadatas=metadatas or [{}] * len(ids),
+        metadatas=metadatas or [{} for _ in range(len(ids))],
     )
 
 

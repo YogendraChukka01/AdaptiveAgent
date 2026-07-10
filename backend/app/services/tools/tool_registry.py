@@ -18,6 +18,7 @@ class ToolResult:
 
 _TOOL_TIMEOUT = 30.0
 _MAX_RETRIES = 2
+_MAX_FILE_READ = 1024 * 1024  # 1 MB
 
 
 @tool
@@ -51,7 +52,7 @@ def read_file(filepath: str) -> str:
             return "Error: access denied — file not in allowed directory"
     try:
         with open(resolved, "r") as f:
-            return f.read()
+            return f.read(_MAX_FILE_READ)
     except Exception as e:
         return f"Error reading file: {e}"
 

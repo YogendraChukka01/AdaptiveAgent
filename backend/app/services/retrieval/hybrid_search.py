@@ -25,7 +25,9 @@ def hybrid_search(
 
     documents = chroma_results["documents"][0]
     metadatas = (
-        chroma_results["metadatas"][0] if chroma_results.get("metadatas") else [{}] * len(documents)
+        chroma_results["metadatas"][0]
+        if chroma_results.get("metadatas")
+        else [{} for _ in range(len(documents))]
     )
     distances = (
         chroma_results["distances"][0]

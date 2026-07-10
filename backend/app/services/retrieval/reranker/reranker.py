@@ -49,6 +49,9 @@ def rerank(
     pairs = [[query, doc] for doc in documents]
     scores = reranker.compute_score(pairs)
 
+    if not isinstance(scores, list):
+        scores = [scores]
+
     indexed = [(documents[i], scores[i], i) for i in range(len(documents))]
     indexed.sort(key=lambda x: x[1], reverse=True)
     return [(doc, score, idx) for doc, score, idx in indexed[:top_k]]

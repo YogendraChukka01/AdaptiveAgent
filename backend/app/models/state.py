@@ -31,7 +31,6 @@ class AgentState(BaseModel):
     safety_confidence: float = 0.0
 
     plan: list[str] = Field(default_factory=list)
-    current_plan_step: int = 0
 
     retrieved_docs: list[dict] = Field(default_factory=list)
     retrieval_scores: list[float] = Field(default_factory=list)
@@ -47,12 +46,10 @@ class AgentState(BaseModel):
     confidence_factors: dict[str, float] = Field(default_factory=dict)
 
     risk_score: float = 0.0
-    risk_level: str = "high"
+    risk_level: str = "low"
     risk_factors: dict[str, float] = Field(default_factory=dict)
 
     approval_status: str = "pending"
-    approval_requested_at: str | None = None
-    approval_decided_at: str | None = None
 
     tool_calls: list[ToolCallRecord] = Field(default_factory=list)
     tool_results: list[str] = Field(default_factory=list)
@@ -66,4 +63,3 @@ class AgentState(BaseModel):
     refined_query: str = ""
     error: str | None = None
     start_time: float = 0.0
-    end_time: float = 0.0
