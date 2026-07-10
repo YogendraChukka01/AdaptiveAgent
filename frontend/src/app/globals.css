@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@variant dark (&:where(.dark, .dark *));
+
 :root {
   --bg-primary: #0f172a;
   --bg-secondary: #1e293b;
@@ -17,7 +19,6 @@
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: system-ui, -apple-system, sans-serif;
 }
 
 ::-webkit-scrollbar {

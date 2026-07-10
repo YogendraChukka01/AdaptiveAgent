@@ -22,6 +22,11 @@ export default function Home() {
   const [approval, setApproval] = useState<ApprovalPayload | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const messagesRef = useRef<ChatMessage[]>([]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -61,7 +66,7 @@ export default function Home() {
 
     try {
       let fullResponse = "";
-      const historyToSend = [...messages, userMsg];
+      const historyToSend = [...messagesRef.current, userMsg];
       const gen = streamChat(historyToSend, threadId, controller.signal);
 
       for await (const ev of gen) {
@@ -97,11 +102,15 @@ export default function Home() {
     } finally {
       if (!controller.signal.aborted) setIsLoading(false);
     }
-  }, [messages, threadId, applyResult]);
+  }, [threadId, applyResult]);
 
   const handleUpload = useCallback(async (file: File) => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setIsLoading(true);
     try {
-      const result = await uploadDocument(file, threadId);
+      const result = await uploadDocument(file, threadId, controller.signal);
       const msg = `📄 Uploaded **${result.filename}** (${result.chunks} chunks indexed)`;
       setMessages((prev) => [
         ...prev,
@@ -109,6 +118,7 @@ export default function Home() {
         { id: crypto.randomUUID(), role: "assistant", content: msg },
       ]);
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       setMessages((prev) => [
         ...prev,
         {
@@ -117,6 +127,8 @@ export default function Home() {
           content: `Upload failed: ${err instanceof Error ? err.message : "Unknown error"}`,
         },
       ]);
+    } finally {
+      if (!controller.signal.aborted) setIsLoading(false);
     }
   }, [threadId]);
 

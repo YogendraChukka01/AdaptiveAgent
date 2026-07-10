@@ -47,6 +47,7 @@ export function SidePanel({ result, onClose }: Props) {
         <h2 className="text-sm font-semibold">Details</h2>
         <button
           onClick={onClose}
+          aria-label="Close details panel"
           className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
         >
           ✕
@@ -102,7 +103,7 @@ export function SidePanel({ result, onClose }: Props) {
                       {cite.source}
                     </span>
                     <span className="text-[var(--accent)]">
-                      {cite.relevance_score.toFixed(2)}
+                      {(cite.relevance_score ?? 0).toFixed(2)}
                     </span>
                   </div>
                   <p className="text-[var(--text-primary)] line-clamp-2">

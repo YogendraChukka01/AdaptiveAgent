@@ -57,14 +57,27 @@ export async function* streamChat(
 
   if (!response.ok) throw new Error(`Chat failed: ${response.status}`);
 
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("text/event-stream") && !contentType.includes("text/plain")) {
+    const body = await response.text();
+    throw new Error(`Expected SSE stream, got ${contentType}: ${body.slice(0, 200)}`);
+  }
+
   const reader = response.body?.getReader();
   if (!reader) throw new Error("No response body");
 
   const decoder = new TextDecoder();
   let buffer = "";
+  const timeoutMs = 120_000;
 
   while (true) {
-    const { done, value } = await reader.read();
+    const readPromise = reader.read();
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("Stream timeout: no data received for 120s")), timeoutMs);
+    });
+
+    const result = await Promise.race([readPromise, timeoutPromise]) as { done: boolean; value: Uint8Array };
+    const { done, value } = result;
     if (done) {
       if (buffer.trim()) {
         for (const line of processBlock(buffer.trim())) {
@@ -88,9 +101,10 @@ export async function* streamChat(
 
 function extractSSEData(block: string, eventPrefix: string): string | null {
   const marker = `event: ${eventPrefix}\ndata: `;
-  const idx = block.indexOf(marker);
+  const trimmed = block.trimStart();
+  const idx = trimmed.indexOf(marker);
   if (idx !== 0) return null;
-  return block.slice(marker.length);
+  return trimmed.slice(marker.length);
 }
 
 function processBlock(block: string): StreamEvent[] {
@@ -143,6 +157,8 @@ function processBlock(block: string): StreamEvent[] {
   } catch (err) {
     if (err instanceof SyntaxError) {
       console.warn("Malformed SSE data, skipping block:", block.slice(0, 100));
+    } else if (err instanceof Error) {
+      console.warn("SSE processing error:", err.message);
     } else {
       throw err;
     }

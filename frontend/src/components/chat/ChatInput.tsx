@@ -18,25 +18,29 @@ export function ChatInput({ onSend, onUpload, disabled }: Props) {
   const [input, setInput] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const submitIfReady = useCallback(() => {
+    if (input.trim() && !disabled) {
+      onSend(input.trim());
+      setInput("");
+    }
+  }, [input, disabled, onSend]);
+
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      if (input.trim() && !disabled) {
-        onSend(input.trim());
-        setInput("");
-      }
+      submitIfReady();
     },
-    [input, disabled, onSend],
+    [submitIfReady],
   );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        handleSubmit(e);
+        submitIfReady();
       }
     },
-    [handleSubmit],
+    [submitIfReady],
   );
 
   const handleInputChange = useCallback(
@@ -76,8 +80,8 @@ export function ChatInput({ onSend, onUpload, disabled }: Props) {
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={disabled}
+          aria-label="Upload document"
           className="p-2 rounded-lg hover:bg-[var(--bg-secondary)] text-[var(--text-secondary)] transition-colors disabled:opacity-50"
-          title="Upload document"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
