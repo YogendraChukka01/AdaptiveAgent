@@ -69,8 +69,62 @@ def _heuristic_score(response: str, query: str, evidence: list) -> tuple[float, 
     return combined, details
 
 
-def _llm_judge_score(query: str, evidence: list, response: str) -> float | None:
-    """Call the LLM-as-judge for faithfulness scoring.  Returns None on failure."""
+def _ragas_faithfulness(query: str, evidence: list, response: str) -> float | None:
+    """Ragas-style faithfulness: extract claims, verify each against context.
+
+    Returns faithfulness score (supported_claims / total_claims) or None
+    on failure so caller falls back to heuristic scoring.
+    """
+    if not settings.eval_judge_model or not getattr(settings, "eval_ragas_enabled", True):
+        return None
+    try:
+        from app.services.judge import extract_claims, verify_claims
+
+        context_parts: list[str] = []
+        for doc in evidence:
+            if isinstance(doc, dict):
+                context_parts.append(doc.get("content", ""))
+            elif isinstance(doc, str):
+                context_parts.append(doc)
+        context_text = "\n".join(context_parts) if context_parts else "(no context)"
+
+        claims = extract_claims(response)
+        if not claims:
+            return None
+
+        verified = verify_claims(context_text, claims)
+        if not verified:
+            return None
+
+        supported = sum(1 for v in verified if v.get("verdict", 0) == 1)
+        faithfulness = supported / len(verified)
+        logger.info(
+            "Ragas faithfulness: %d/%d claims supported = %.3f",
+            supported,
+            len(verified),
+            faithfulness,
+        )
+        return faithfulness
+    except Exception:
+        logger.debug("Ragas faithfulness scoring failed")
+        return None
+
+
+def _judge_relevancy(query: str, response: str) -> float | None:
+    """LLM-as-judge answer relevancy. Returns score or None on failure."""
+    if not settings.eval_judge_model or not getattr(settings, "eval_relevancy_enabled", True):
+        return None
+    try:
+        from app.services.judge import score_relevancy
+
+        return score_relevancy(query, response)
+    except Exception:
+        logger.debug("Relevancy scoring failed")
+        return None
+
+
+def _judge_faithfulness(query: str, evidence: list, response: str) -> float | None:
+    """Simple LLM-as-judge faithfulness (single-pass). Returns score or None."""
     if not settings.eval_judge_model:
         return None
     try:
@@ -85,17 +139,20 @@ def _llm_judge_score(query: str, evidence: list, response: str) -> float | None:
         context_text = "\n".join(context_parts) if context_parts else "(no context)"
         return score_faithfulness(query, context_text, response)
     except Exception:
-        logger.debug("LLM judge unavailable, falling back to heuristic")
+        logger.debug("Judge faithfulness scoring failed")
         return None
 
 
 def eval_node(state: AgentState) -> dict:
-    """Evaluate response quality using heuristic + optional LLM-as-judge.
+    """Evaluate response quality using heuristic + LLM-as-judge.
 
     Scoring pipeline:
       1. Heuristic baseline (fast, zero-cost) — length, grounding, relevance
-      2. LLM judge (when eval_judge_model is set) — faithfulness to context
-      3. Blend: 60% heuristic + 40% LLM judge when both available
+      2. LLM judge (when eval_judge_model is set):
+         a. Ragas-style faithfulness (claim extraction + NLI verification)
+         b. Answer relevancy (does response address the query)
+         c. Simple faithfulness (single-pass fallback if Ragas fails)
+      3. Blend: weighted combination of heuristic + judge scores
 
     Returns:
         eval_score (0–1): combined quality score
@@ -113,25 +170,51 @@ def eval_node(state: AgentState) -> dict:
 
     h_score, h_details = _heuristic_score(response, query, evidence)
 
-    llm_score = _llm_judge_score(query, evidence, response)
+    # LLM-as-judge scoring (when configured)
+    ragas_score = _ragas_faithfulness(query, evidence, response)
+    relevancy_score = _judge_relevancy(query, response)
+    simple_faith_score = _judge_faithfulness(query, evidence, response)
 
-    if llm_score is not None:
-        combined = 0.6 * h_score + 0.4 * llm_score
+    # Build combined score with available metrics
+    judge_scores: list[tuple[float, float]] = []  # (score, weight)
+
+    if ragas_score is not None:
+        judge_scores.append((ragas_score, 0.5))
+        logger.info("Ragas faithfulness: %.3f", ragas_score)
+    elif simple_faith_score is not None:
+        judge_scores.append((simple_faith_score, 0.4))
+        logger.info("Simple faithfulness: %.3f", simple_faith_score)
+
+    if relevancy_score is not None:
+        judge_scores.append((relevancy_score, 0.3))
+        logger.info("Answer relevancy: %.3f", relevancy_score)
+
+    if judge_scores:
+        total_weight = sum(w for _, w in judge_scores)
+        judge_avg = sum(s * w for s, w in judge_scores) / total_weight
+        combined = 0.4 * h_score + 0.6 * judge_avg
         method = "heuristic+judge"
     else:
         combined = h_score
         method = "heuristic"
 
-    details_str = (
-        f"method={method}, "
-        f"length={h_details['length']:.2f}, "
-        f"grounding={h_details['grounding']:.2f}, "
-        f"relevance={h_details['relevance']:.2f}"
-        + (f", judge={llm_score:.2f}" if llm_score is not None else "")
-        + f", combined={combined:.2f}"
-    )
+    details_parts = [
+        f"method={method}",
+        f"length={h_details['length']:.2f}",
+        f"grounding={h_details['grounding']:.2f}",
+        f"relevance={h_details['relevance']:.2f}",
+    ]
+    if ragas_score is not None:
+        details_parts.append(f"ragas={ragas_score:.3f}")
+    if relevancy_score is not None:
+        details_parts.append(f"relevancy={relevancy_score:.3f}")
+    if simple_faith_score is not None and ragas_score is None:
+        details_parts.append(f"faithfulness={simple_faith_score:.3f}")
+    details_parts.append(f"combined={combined:.3f}")
 
-    logger.info("Eval score: %.2f (%s)", combined, details_str)
+    details_str = ", ".join(details_parts)
+
+    logger.info("Eval score: %.3f (%s)", combined, details_str)
 
     return {
         "eval_score": round(combined, 3),

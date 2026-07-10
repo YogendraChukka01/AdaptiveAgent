@@ -92,6 +92,10 @@ class Settings(BaseSettings):
     eval_judge_api_key: str | None = None
     eval_judge_base_url: str | None = None
     eval_judge_max_chars: int = 1500
+    # Ragas-style claim extraction for faithfulness (requires eval_judge_model)
+    eval_ragas_enabled: bool = True
+    # Answer relevancy scoring (requires eval_judge_model)
+    eval_relevancy_enabled: bool = True
 
     # ── Memory distillation ───────────────────────────────────────────
     memory_distill_enabled: bool = True

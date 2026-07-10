@@ -89,73 +89,6 @@ def _build_langchain_llm(
     raise ValueError(msg)
 
 
-def get_llm(
-    temperature: float = 0.0,
-    max_tokens: int | None = None,
-) -> object:
-    """Return a LangChain chat model with automatic cloud fallback.
-
-    If ``llm_fallback_model`` is configured and the primary model is
-    ``ollama``, a ``ChatLiteLLM`` wrapper is used.  LiteLLM handles the
-    fallback chain natively: primary → fallback on failure.
-    """
-    provider = settings.llm_provider.lower()
-    model = settings.llm_model
-    api_key = settings.llm_api_key
-    base_url = settings.llm_base_url
-
-    has_fallback = bool(settings.llm_fallback_model)
-
-    if has_fallback:
-        try:
-            from langchain_litellm import ChatLiteLLM
-
-            primary_model = _litellm_model_id(provider, model, base_url)
-            fallback_model = _litellm_model_id(
-                settings.llm_fallback_provider or "openai",
-                settings.llm_fallback_model,
-                settings.llm_fallback_base_url,
-            )
-
-            fallbacks = [fallback_model]
-            logger.info("Using LiteLLM with fallback: %s -> %s", primary_model, fallback_model)
-
-            kwargs: dict = {
-                "model": primary_model,
-                "temperature": temperature,
-                "num_retries": settings.llm_num_retries,
-                "fallbacks": fallbacks,
-                "request_timeout": settings.llm_request_timeout,
-                "drop_params": True,
-            }
-            if max_tokens:
-                kwargs["max_tokens"] = max_tokens
-            if api_key:
-                kwargs["api_key"] = api_key
-            if base_url:
-                kwargs["api_base"] = base_url
-            if settings.llm_fallback_api_key:
-                kwargs["fallback_api_key"] = settings.llm_fallback_api_key
-            if settings.llm_fallback_base_url:
-                kwargs["fallback_api_base"] = settings.llm_fallback_base_url
-
-            return ChatLiteLLM(**kwargs)
-        except ImportError:
-            logger.warning(
-                "langchain_litellm not installed; falling back to direct provider. "
-                "Install with: pip install langchain-litellm"
-            )
-
-    return _build_langchain_llm(
-        provider=provider,
-        model=model,
-        api_key=api_key,
-        base_url=base_url,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-
-
 def _litellm_model_id(provider: str, model: str, base_url: str | None = None) -> str:
     """Build a LiteLLM model identifier from provider + model name."""
     if provider == "ollama":
@@ -167,3 +100,125 @@ def _litellm_model_id(provider: str, model: str, base_url: str | None = None) ->
     if base_url:
         return f"openai/{model}"
     return model
+
+
+def _build_router_llm(
+    temperature: float = 0.0,
+    max_tokens: int | None = None,
+) -> object:
+    """Build a ChatLiteLLMRouter with automatic cloud fallback.
+
+    Uses litellm.Router for production-grade fallback handling:
+    - Automatic retry on timeout, 5xx, rate-limit errors
+    - Cooldown on degraded deployments
+    - Transparent fallback: ollama → cloud model
+    """
+    from langchain_litellm import ChatLiteLLMRouter
+    from litellm import Router
+
+    provider = settings.llm_provider.lower()
+    model = settings.llm_model
+    api_key = settings.llm_api_key
+    base_url = settings.llm_base_url
+
+    primary_model = _litellm_model_id(provider, model, base_url)
+    fallback_model = _litellm_model_id(
+        settings.llm_fallback_provider or "openai",
+        settings.llm_fallback_model or "gpt-4o-mini",
+        settings.llm_fallback_base_url,
+    )
+
+    model_list = [
+        {
+            "model_name": "chat",
+            "litellm_params": {
+                "model": primary_model,
+                "temperature": temperature,
+                "request_timeout": settings.llm_request_timeout,
+                "num_retries": settings.llm_num_retries,
+                "drop_params": True,
+                **({"api_key": api_key} if api_key else {}),
+                **({"api_base": base_url} if base_url else {}),
+            },
+        },
+        {
+            "model_name": "chat",
+            "litellm_params": {
+                "model": fallback_model,
+                "temperature": temperature,
+                "request_timeout": 30,
+                "num_retries": settings.llm_fallback_num_retries,
+                "drop_params": True,
+                **(
+                    {"api_key": settings.llm_fallback_api_key}
+                    if settings.llm_fallback_api_key
+                    else {}
+                ),
+                **(
+                    {"api_base": settings.llm_fallback_base_url}
+                    if settings.llm_fallback_base_url
+                    else {}
+                ),
+            },
+        },
+    ]
+
+    router = Router(
+        model_list=model_list,
+        fallbacks=[{"chat": ["chat"]}],
+        num_retries=1,
+        retry_after=2,
+        timeout=settings.llm_request_timeout + 15,
+        routing_strategy="simple-shuffle",
+        allowed_fails=3,
+        cooldown_time=60,
+    )
+
+    kwargs: dict = {
+        "router": router,
+        "model": "chat",
+        "temperature": temperature,
+    }
+    if max_tokens:
+        kwargs["max_tokens"] = max_tokens
+
+    logger.info(
+        "Using litellm.Router fallback: %s -> %s",
+        primary_model,
+        fallback_model,
+    )
+
+    return ChatLiteLLMRouter(**kwargs)
+
+
+def get_llm(
+    temperature: float = 0.0,
+    max_tokens: int | None = None,
+) -> object:
+    """Return a LangChain chat model with automatic cloud fallback.
+
+    When ``llm_fallback_model`` is configured, uses litellm.Router for
+    production-grade fallback handling (retry, cooldown, transparent
+    provider switching).  Ollama timeouts, connection errors, and VRAM
+    exhaustion automatically trigger fallback to the cloud model.
+    """
+    has_fallback = bool(settings.llm_fallback_model)
+
+    if has_fallback:
+        try:
+            return _build_router_llm(temperature=temperature, max_tokens=max_tokens)
+        except ImportError:
+            logger.warning(
+                "langchain_litellm not installed; falling back to direct provider. "
+                "Install with: pip install langchain-litellm"
+            )
+
+    provider = settings.llm_provider.lower()
+    return _build_langchain_llm(
+        provider=provider,
+        model=settings.llm_model,
+        api_key=settings.llm_api_key,
+        base_url=settings.llm_base_url,
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
