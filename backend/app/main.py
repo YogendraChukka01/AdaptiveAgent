@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import audit, chat, health, upload
+from app.api import audit, chat, evaluate, health, upload
 from app.api.health import close_health_client
 from app.core.config import settings
 from app.core.database import init_db
@@ -54,3 +54,4 @@ app.include_router(health.router)
 app.include_router(chat.router)
 app.include_router(upload.router)
 app.include_router(audit.router)
+app.include_router(evaluate.router)

@@ -58,6 +58,16 @@ class Settings(BaseSettings):
 
     chroma_persist_directory: str = "./chroma_data"
 
+    # ── Vector store backend ─────────────────────────────────────────
+    # Options: "chroma", "pgvector", "qdrant", "pinecone"
+    vector_store_type: str = "chroma"
+    vector_store_collection: str = "safeagent_docs"
+    pgvector_connection_string: str = ""
+    qdrant_url: str = "http://localhost:6333"
+    qdrant_grpc: bool = False
+    pinecone_api_key: str = ""
+    pinecone_index_name: str = ""
+
     auth_jwt_secret: str = "change-me-in-production"
     auth_jwt_algorithm: str = "HS256"
     auth_token_expire_minutes: int = 60
