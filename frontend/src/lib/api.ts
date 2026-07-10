@@ -58,7 +58,7 @@ export async function* streamChat(
   if (!response.ok) throw new Error(`Chat failed: ${response.status}`);
 
   const contentType = response.headers.get("content-type") || "";
-  if (!contentType.includes("text/event-stream") && !contentType.includes("text/plain")) {
+  if (!contentType.includes("text/event-stream")) {
     const body = await response.text();
     throw new Error(`Expected SSE stream, got ${contentType}: ${body.slice(0, 200)}`);
   }
@@ -71,30 +71,41 @@ export async function* streamChat(
   const timeoutMs = 120_000;
 
   while (true) {
-    const readPromise = reader.read();
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error("Stream timeout: no data received for 120s")), timeoutMs);
-    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const readPromise = reader.read();
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("Stream timeout: no data received for 120s")),
+          timeoutMs,
+        );
+      });
 
-    const result = await Promise.race([readPromise, timeoutPromise]) as { done: boolean; value: Uint8Array };
-    const { done, value } = result;
-    if (done) {
-      if (buffer.trim()) {
-        for (const line of processBlock(buffer.trim())) {
-          yield line;
+      const result = await Promise.race([readPromise, timeoutPromise]) as {
+        done: boolean;
+        value: Uint8Array;
+      };
+      const { done, value } = result;
+      if (done) {
+        if (buffer.trim()) {
+          for (const line of processBlock(buffer.trim())) {
+            yield line;
+          }
+        }
+        break;
+      }
+
+      buffer += decoder.decode(value, { stream: true });
+      const blocks = buffer.split("\n\n");
+      buffer = blocks.pop() || "";
+
+      for (const block of blocks) {
+        for (const evt of processBlock(block)) {
+          yield evt;
         }
       }
-      break;
-    }
-
-    buffer += decoder.decode(value, { stream: true });
-    const blocks = buffer.split("\n\n");
-    buffer = blocks.pop() || "";
-
-    for (const block of blocks) {
-      for (const evt of processBlock(block)) {
-        yield evt;
-      }
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
 }

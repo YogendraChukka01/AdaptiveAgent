@@ -16,6 +16,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export function ChatInput({ onSend, onUpload, disabled }: Props) {
   const [input, setInput] = useState("");
+  const [fileError, setFileError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const submitIfReady = useCallback(() => {
@@ -56,14 +57,15 @@ export function ChatInput({ onSend, onUpload, disabled }: Props) {
       if (!file) return;
 
       if (!ACCEPTED_TYPES.has(file.type) && !file.name.match(/\.(txt|md|pdf|docx)$/i)) {
-        alert("Unsupported file type. Please upload a .txt, .md, .pdf, or .docx file.");
+        setFileError("Unsupported file type. Please upload a .txt, .md, .pdf, or .docx file.");
         return;
       }
       if (file.size > MAX_FILE_SIZE) {
-        alert("File too large. Maximum size is 10 MB.");
+        setFileError("File too large. Maximum size is 10 MB.");
         return;
       }
 
+      setFileError(null);
       onUpload(file);
       e.target.value = "";
     },
@@ -75,6 +77,9 @@ export function ChatInput({ onSend, onUpload, disabled }: Props) {
       onSubmit={handleSubmit}
       className="border-t border-[var(--border)] p-4"
     >
+      {fileError && (
+        <div className="max-w-4xl mx-auto mb-2 text-xs text-red-400">{fileError}</div>
+      )}
       <div className="flex items-center gap-3 max-w-4xl mx-auto">
         <button
           type="button"
@@ -111,6 +116,7 @@ export function ChatInput({ onSend, onUpload, disabled }: Props) {
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           placeholder="Ask a question..."
+          aria-label="Ask a question"
           disabled={disabled}
           className="flex-1 bg-[var(--bg-secondary)] rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[var(--accent)] disabled:opacity-50"
         />

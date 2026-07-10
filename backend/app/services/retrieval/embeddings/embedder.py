@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import gc
+from collections import OrderedDict
 from functools import lru_cache
 
 import torch
@@ -45,30 +45,24 @@ def get_embedder() -> object:
     return _embedder
 
 
-_EMBED_CACHE: dict[tuple[str, ...], list[float]] = {}
-_EMBED_CACHE_ORDER: list[tuple[str, ...]] = []
+_EMBED_CACHE: OrderedDict[tuple[str, ...], list[float]] = OrderedDict()
 _EMBED_CACHE_MAX = 2048
 
 
-def _cache_get(texts: list[str]):
+def _cache_get(texts: list[str]) -> list[list[float]] | None:
     key = tuple(texts)
     if key in _EMBED_CACHE:
-        # move to end (LRU)
-        _EMBED_CACHE_ORDER.remove(key)
-        _EMBED_CACHE_ORDER.append(key)
+        _EMBED_CACHE.move_to_end(key)
         return _EMBED_CACHE[key]
     return None
 
 
 def _cache_put(texts: list[str], vectors: list[list[float]]) -> None:
     key = tuple(texts)
-    if key in _EMBED_CACHE:
-        _EMBED_CACHE_ORDER.remove(key)
     _EMBED_CACHE[key] = vectors
-    _EMBED_CACHE_ORDER.append(key)
-    while len(_EMBED_CACHE_ORDER) > _EMBED_CACHE_MAX:
-        old = _EMBED_CACHE_ORDER.pop(0)
-        _EMBED_CACHE.pop(old, None)
+    _EMBED_CACHE.move_to_end(key)
+    while len(_EMBED_CACHE) > _EMBED_CACHE_MAX:
+        _EMBED_CACHE.popitem(last=False)
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
@@ -78,9 +72,6 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
 
     model = get_embedder()
     embeddings = model.encode(texts)
-    gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
     vectors = embeddings.tolist() if hasattr(embeddings, "tolist") else list(embeddings)
     _cache_put(texts, vectors)
     return vectors

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncGenerator
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -26,27 +27,29 @@ def _build_serde():
 
 _graph: CompiledStateGraph | None = None
 _pool: AsyncConnectionPool | None = None
+_init_lock = asyncio.Lock()
 
 
 async def init_graph() -> CompiledStateGraph:
     global _pool, _graph
-    if _graph is not None:
+    async with _init_lock:
+        if _graph is not None:
+            return _graph
+        _pool = AsyncConnectionPool(
+            conninfo=settings.database_url.replace("+asyncpg", ""),
+            min_size=2,
+            max_size=10,
+            open=True,
+            timeout=30,
+        )
+        serde = _build_serde()
+        checkpointer = AsyncPostgresSaver(pool=_pool, serde=serde)
+        await checkpointer.setup()
+        _graph = build_graph(checkpointer=checkpointer)
         return _graph
-    _pool = AsyncConnectionPool(
-        conninfo=settings.database_url.replace("+asyncpg", ""),
-        min_size=2,
-        max_size=10,
-        open=True,
-        timeout=30,
-    )
-    serde = _build_serde()
-    checkpointer = AsyncPostgresSaver(pool=_pool, serde=serde)
-    await checkpointer.setup()
-    _graph = build_graph(checkpointer=checkpointer)
-    return _graph
 
 
-async def get_graph() -> AsyncGenerator[CompiledStateGraph]:
+async def get_graph() -> AsyncGenerator[CompiledStateGraph, None]:
     yield await init_graph()
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import json
 import types
+from collections import OrderedDict
 
 import pytest
 from langgraph.checkpoint.memory import MemorySaver
@@ -305,8 +306,7 @@ def test_embedder_lru_cache(monkeypatch):
             calls.append(tuple(texts))
             return [[0.1 * (i + 1)] for i in range(len(texts))]
 
-    monkeypatch.setattr(embedder_mod, "_EMBED_CACHE", {})
-    monkeypatch.setattr(embedder_mod, "_EMBED_CACHE_ORDER", [])
+    monkeypatch.setattr(embedder_mod, "_EMBED_CACHE", OrderedDict())
     monkeypatch.setattr(embedder_mod, "get_embedder", lambda: FakeModel())
 
     a = embedder_mod.embed_texts(["hello", "world"])

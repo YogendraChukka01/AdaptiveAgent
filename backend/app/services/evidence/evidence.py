@@ -126,9 +126,10 @@ def _compute_contradictions(
             lower_j = texts[j].lower()
 
             for term in overlap:
-                neg_i = re.search(rf"\bnot\b.{{0,20}}\b{term}\b", lower_i)
-                neg_i = neg_i or re.search(rf"\b{term}\b.{{0,20}}\bnot\b", lower_i)
-                neg_j = re.search(rf"\bnot\b.{{0,20}}\b{term}\b", lower_j)
+                safe_term = re.escape(term)
+                neg_i = re.search(rf"\bnot\b.{{0,20}}\b{safe_term}\b", lower_i)
+                neg_i = neg_i or re.search(rf"\b{safe_term}\b.{{0,20}}\bnot\b", lower_i)
+                neg_j = re.search(rf"\bnot\b.{{0,20}}\b{safe_term}\b", lower_j)
                 neg_j = neg_j or re.search(rf"\b{term}\b.{{0,20}}\bnot\b", lower_j)
                 negated_i = neg_i
                 negated_j = neg_j

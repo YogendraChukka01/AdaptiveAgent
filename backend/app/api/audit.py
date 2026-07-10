@@ -15,6 +15,12 @@ async def get_audit_logs(
     offset: int = 0,
     thread_id: str | None = None,
 ):
+    from app.api.chat import _require_auth
+
+    await _require_auth(None)
+
+    limit = min(limit, 200)
+
     async with async_session_factory() as session:
         query = select(AuditLog).order_by(AuditLog.created_at.desc())
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   approveAction,
   type ApprovalPayload,
@@ -13,15 +13,26 @@ interface Props {
 export function ApprovalCard({ payload, onResolved }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   const handle = async (action: "approve" | "reject") => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setPending(true);
     setError(null);
     try {
-      const result = await approveAction(payload.thread_id, action);
+      const result = await approveAction(payload.thread_id, action, controller.signal);
       setPending(false);
       onResolved(result);
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "Approval failed");
       setPending(false);
     }

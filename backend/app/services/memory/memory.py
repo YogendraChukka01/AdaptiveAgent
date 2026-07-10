@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from typing import Any
@@ -12,11 +13,13 @@ from app.core.config import settings
 class MemoryManager:
     def __init__(self):
         self._redis: redis.Redis | None = None
+        self._lock = asyncio.Lock()
 
     async def _get_redis(self) -> redis.Redis:
-        if self._redis is None:
-            self._redis = redis.from_url(settings.redis_url, decode_responses=True)
-        return self._redis
+        async with self._lock:
+            if self._redis is None:
+                self._redis = redis.from_url(settings.redis_url, decode_responses=True)
+            return self._redis
 
     async def get_redis(self) -> redis.Redis:
         return await self._get_redis()

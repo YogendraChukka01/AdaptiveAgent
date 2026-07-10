@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io as _io
 import logging
 import os
 import uuid
@@ -16,9 +17,8 @@ ALLOWED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx"}
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
 
-def _extract_text(file: UploadFile) -> str:
-    content = file.file.read()
-    if file.filename and file.filename.endswith(".pdf"):
+def _extract_text(content: bytes, filename: str) -> str:
+    if filename.endswith(".pdf"):
         try:
             import fitz
 
@@ -29,22 +29,28 @@ def _extract_text(file: UploadFile) -> str:
                 doc.close()
             return text
         except ImportError:
-            return content.decode("utf-8", errors="ignore")
-    elif file.filename and file.filename.endswith(".docx"):
+            raise HTTPException(
+                status_code=400,
+                detail="PDF support requires PyMuPDF. Install with: pip install PyMuPDF",
+            )
+    elif filename.endswith(".docx"):
         try:
-            import io
-
             from docx import Document
 
-            doc = Document(io.BytesIO(content))
+            doc = Document(_io.BytesIO(content))
             return "\n".join(p.text for p in doc.paragraphs)
         except ImportError:
-            return content.decode("utf-8", errors="ignore")
+            raise HTTPException(
+                status_code=400,
+                detail="DOCX support requires python-docx. Install with: pip install python-docx",
+            )
     else:
         return content.decode("utf-8", errors="ignore")
 
 
 def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]:
+    if chunk_size <= 0:
+        chunk_size = 500
     if overlap >= chunk_size:
         overlap = chunk_size // 4
     words = text.split()
@@ -63,11 +69,14 @@ def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str
 @router.post("")
 async def upload_document(file: UploadFile):
     if not file.filename:
-        return {"error": "No filename provided"}
+        raise HTTPException(status_code=400, detail="No filename provided")
 
     ext = os.path.splitext(file.filename)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
-        return {"error": f"Unsupported file type: {ext}. Allowed: {ALLOWED_EXTENSIONS}"}
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {ext}. Allowed: {ALLOWED_EXTENSIONS}",
+        )
 
     content = await file.read()
     if len(content) > MAX_FILE_SIZE:
@@ -76,10 +85,7 @@ async def upload_document(file: UploadFile):
             detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024 * 1024)} MB",
         )
 
-    import io as _io
-
-    file.file = _io.BytesIO(content)
-    text = _extract_text(file)
+    text = _extract_text(content, file.filename)
     chunks = _chunk_text(text)
 
     ids = [str(uuid.uuid4()) for _ in chunks]

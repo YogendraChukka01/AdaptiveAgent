@@ -50,7 +50,7 @@ def route_after_risk(state: AgentState) -> Literal["approval"]:
 
 
 def route_after_approval(state: AgentState) -> Literal["tools", "response"]:
-    if state.approval_status == "approved":
+    if state.approval_status in ("approved", "not_required"):
         return "tools"
     return "response"
 

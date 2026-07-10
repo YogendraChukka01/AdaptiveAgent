@@ -90,12 +90,15 @@ export default function Home() {
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
+      console.error("Stream error:", err);
       setMessages((prev) => {
         const updated = [...prev];
         updated[updated.length - 1] = {
           ...updated[updated.length - 1],
           role: "assistant",
-          content: "Sorry, an error occurred while processing your request.",
+          content: err instanceof Error
+            ? `Error: ${err.message.slice(0, 200)}`
+            : "An unexpected error occurred.",
         };
         return updated;
       });
@@ -139,6 +142,7 @@ export default function Home() {
           <h1 className="text-lg font-semibold">SafeAgent</h1>
           <button
             onClick={() => setShowPanel(!showPanel)}
+            aria-expanded={showPanel}
             className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           >
             {showPanel ? "Hide Details" : "Show Details"}
