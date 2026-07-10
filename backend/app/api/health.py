@@ -23,6 +23,13 @@ def _get_health_client() -> httpx.AsyncClient:
     return _health_client
 
 
+async def close_health_client() -> None:
+    global _health_client
+    if _health_client is not None and not _health_client.is_closed:
+        await _health_client.aclose()
+        _health_client = None
+
+
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
     ollama_ok = False

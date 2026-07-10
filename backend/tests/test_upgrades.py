@@ -635,11 +635,9 @@ class TestJudgeService:
             max_steps=10,
             start_time=0.0,
             final_response="RAG is retrieval augmented generation.",
-            retrieved_docs=[{"document": "RAG is a technique for grounding LLMs."}],
+            retrieved_docs=[{"content": "RAG is a technique for grounding LLMs."}],
         )
-        import asyncio
-
-        result = asyncio.run(eval_node(state))
+        result = eval_node(state)
         assert 0.0 <= result["eval_score"] <= 1.0
         assert "method=heuristic" in result["eval_details"]
 
@@ -655,9 +653,7 @@ class TestJudgeService:
                 max_steps=10,
                 start_time=0.0,
             )
-            import asyncio
-
-            result = asyncio.run(eval_node(state))
+            result = eval_node(state)
             assert result["eval_score"] == 1.0
         finally:
             settings.eval_enabled = True

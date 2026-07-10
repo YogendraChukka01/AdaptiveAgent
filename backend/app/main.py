@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import audit, chat, health, upload
+from app.api.health import close_health_client
 from app.core.config import settings
 from app.core.database import init_db
 from app.core.deps import init_graph, shutdown_graph
@@ -31,6 +32,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     await init_graph()
     yield
+    await close_health_client()
     await shutdown_graph()
 
 

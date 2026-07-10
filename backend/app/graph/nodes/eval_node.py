@@ -49,17 +49,18 @@ def _heuristic_score(response: str, query: str, evidence: list) -> tuple[float, 
     else:
         scores.append(0.5)
 
-    # 4. Refusal penalty
+    # 4. Refusal penalty (applied as multiplier, not averaged element)
     refusal_phrases = [
         "i don't have sufficient evidence",
         "unable to generate",
         "cannot provide",
         "i cannot",
     ]
-    if any(phrase in response.lower() for phrase in refusal_phrases):
-        scores.append(0.3)
+    is_refusal = any(phrase in response.lower() for phrase in refusal_phrases)
 
     combined = sum(scores) / len(scores) if scores else 0.0
+    if is_refusal:
+        combined *= 0.5
     details = {
         "length": scores[0] if scores else 0.0,
         "grounding": scores[1] if len(scores) > 1 else 0.0,
@@ -88,7 +89,7 @@ def _llm_judge_score(query: str, evidence: list, response: str) -> float | None:
         return None
 
 
-async def eval_node(state: AgentState) -> dict:
+def eval_node(state: AgentState) -> dict:
     """Evaluate response quality using heuristic + optional LLM-as-judge.
 
     Scoring pipeline:

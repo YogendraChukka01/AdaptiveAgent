@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import io as _io
 import logging
 import os
@@ -95,10 +96,11 @@ async def upload_document(
     chunks = _chunk_text(text)
 
     ids = [str(uuid.uuid4()) for _ in chunks]
-    embeddings = embed_texts(chunks)
+    embeddings = await asyncio.to_thread(embed_texts, chunks)
     metadatas = [{"source": file.filename, "chunk": i} for i in range(len(chunks))]
 
-    add_documents(
+    await asyncio.to_thread(
+        add_documents,
         collection_name="safeagent_docs",
         ids=ids,
         embeddings=embeddings,

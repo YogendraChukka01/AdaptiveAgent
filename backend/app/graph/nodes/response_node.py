@@ -5,6 +5,15 @@ from app.models.state import AgentState
 
 _REFUSAL = "I cannot provide this response as it may violate safety guidelines."
 
+_REFUSAL_PATTERNS = [
+    "i don't have sufficient evidence",
+    "unable to generate",
+    "cannot provide",
+    "i cannot",
+    "please try again later",
+    "please try rephrasing",
+]
+
 
 def _is_safe_output(text: str) -> bool:
     lowered = text.lower()
@@ -20,6 +29,11 @@ def _is_safe_output(text: str) -> bool:
     return True
 
 
+def _is_refusal(text: str) -> bool:
+    lowered = text.lower()
+    return any(p in lowered for p in _REFUSAL_PATTERNS)
+
+
 def response_node(state: AgentState) -> dict:
     response = state.final_response
 
@@ -31,7 +45,8 @@ def response_node(state: AgentState) -> dict:
 
     if response and not _is_safe_output(response):
         response = _REFUSAL
-    else:
+
+    if response and not _is_refusal(response):
         tool_results = [r for r in state.tool_results if r]
         if tool_results:
             joined = "\n\n".join(f"- {r}" for r in tool_results)
