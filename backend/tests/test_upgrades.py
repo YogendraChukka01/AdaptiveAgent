@@ -612,3 +612,52 @@ def test_graph_scenarios(monkeypatch, tool_names, action, exp_status, exp_interr
     else:
         # either no tools configured or rejected
         assert vals["tool_results"] in ([], ["ok"]), vals
+
+
+# ---------------------------------------------------------------------------
+# 28. LLM-as-judge faithfulness scoring
+# ---------------------------------------------------------------------------
+class TestJudgeService:
+    def test_heuristic_fallback(self):
+        from app.services.judge import score_faithfulness
+
+        # LLM unavailable → returns 0.0 fallback
+        score = score_faithfulness("what is X?", "X is Y", "Y is Z")
+        assert 0.0 <= score <= 1.0
+
+    def test_eval_node_heuristic_only(self):
+        from app.graph.nodes.eval_node import eval_node
+
+        state = AgentState(
+            query="what is RAG?",
+            messages=[],
+            step_count=0,
+            max_steps=10,
+            start_time=0.0,
+            final_response="RAG is retrieval augmented generation.",
+            retrieved_docs=[{"document": "RAG is a technique for grounding LLMs."}],
+        )
+        import asyncio
+
+        result = asyncio.run(eval_node(state))
+        assert 0.0 <= result["eval_score"] <= 1.0
+        assert "method=heuristic" in result["eval_details"]
+
+    def test_eval_node_disabled(self):
+        from app.graph.nodes.eval_node import eval_node
+
+        settings.eval_enabled = False
+        try:
+            state = AgentState(
+                query="x",
+                messages=[],
+                step_count=0,
+                max_steps=10,
+                start_time=0.0,
+            )
+            import asyncio
+
+            result = asyncio.run(eval_node(state))
+            assert result["eval_score"] == 1.0
+        finally:
+            settings.eval_enabled = True

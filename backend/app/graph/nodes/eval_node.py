@@ -8,31 +8,11 @@ from app.models.state import AgentState
 logger = logging.getLogger(__name__)
 
 
-async def eval_node(state: AgentState) -> dict:
-    """Evaluate response quality and score it.
-
-    Uses a fast heuristic approach (no external LLM judge by default) to
-    check whether the response is grounded in the retrieved evidence and
-    addresses the original query.  When ``eval_judge_model`` is configured,
-    a Ragas-style LLM-as-judge scoring step is also performed.
-
-    Returns:
-        eval_score (0–1): combined quality score
-        eval_details: human-readable explanation
-    """
-    if not settings.eval_enabled:
-        return {"eval_score": 1.0, "eval_details": "evaluation disabled"}
-
-    response = state.final_response
-    query = state.sanitized_query or state.query
-    evidence = state.retrieved_docs
-
-    if not response:
-        return {"eval_score": 0.0, "eval_details": "empty response"}
-
+def _heuristic_score(response: str, query: str, evidence: list) -> tuple[float, dict]:
+    """Fast deterministic scoring without LLM calls."""
     scores: list[float] = []
 
-    # ── 1. Heuristic: response length relative to query complexity ────
+    # 1. Response length
     word_count = len(response.split())
     if word_count < 5:
         scores.append(0.2)
@@ -41,9 +21,9 @@ async def eval_node(state: AgentState) -> dict:
     else:
         scores.append(0.9)
 
-    # ── 2. Evidence grounding: fraction of response words found in evidence
+    # 2. Evidence grounding
     if evidence:
-        evidence_parts = []
+        evidence_parts: list[str] = []
         for doc in evidence:
             if isinstance(doc, dict):
                 evidence_parts.append(doc.get("document", ""))
@@ -60,7 +40,7 @@ async def eval_node(state: AgentState) -> dict:
     else:
         scores.append(0.3)
 
-    # ── 3. Query relevance: shared terms between query and response ────
+    # 3. Query relevance
     query_terms = set(query.lower().split())
     response_terms = set(response.lower().split())
     if query_terms:
@@ -69,7 +49,7 @@ async def eval_node(state: AgentState) -> dict:
     else:
         scores.append(0.5)
 
-    # ── 4. Safety / refusal check ─────────────────────────────────────
+    # 4. Refusal penalty
     refusal_phrases = [
         "i don't have sufficient evidence",
         "unable to generate",
@@ -80,17 +60,79 @@ async def eval_node(state: AgentState) -> dict:
         scores.append(0.3)
 
     combined = sum(scores) / len(scores) if scores else 0.0
+    details = {
+        "length": scores[0] if scores else 0.0,
+        "grounding": scores[1] if len(scores) > 1 else 0.0,
+        "relevance": scores[2] if len(scores) > 2 else 0.0,
+    }
+    return combined, details
 
-    details_parts = [
-        f"length={scores[0]:.2f}" if scores else "",
-        f"grounding={scores[1]:.2f}" if len(scores) > 1 else "",
-        f"relevance={scores[2]:.2f}" if len(scores) > 2 else "",
-        f"combined={combined:.2f}",
-    ]
 
-    logger.info("Eval score: %.2f (%s)", combined, ", ".join(details_parts))
+def _llm_judge_score(query: str, evidence: list, response: str) -> float | None:
+    """Call the LLM-as-judge for faithfulness scoring.  Returns None on failure."""
+    if not settings.eval_judge_model:
+        return None
+    try:
+        from app.services.judge.faithfulness import score_faithfulness
+
+        context_parts: list[str] = []
+        for doc in evidence:
+            if isinstance(doc, dict):
+                context_parts.append(doc.get("document", ""))
+            elif isinstance(doc, str):
+                context_parts.append(doc)
+        context_text = "\n".join(context_parts) if context_parts else "(no context)"
+        return score_faithfulness(query, context_text, response)
+    except Exception:
+        logger.debug("LLM judge unavailable, falling back to heuristic")
+        return None
+
+
+async def eval_node(state: AgentState) -> dict:
+    """Evaluate response quality using heuristic + optional LLM-as-judge.
+
+    Scoring pipeline:
+      1. Heuristic baseline (fast, zero-cost) — length, grounding, relevance
+      2. LLM judge (when eval_judge_model is set) — faithfulness to context
+      3. Blend: 60% heuristic + 40% LLM judge when both available
+
+    Returns:
+        eval_score (0–1): combined quality score
+        eval_details: human-readable explanation
+    """
+    if not settings.eval_enabled:
+        return {"eval_score": 1.0, "eval_details": "evaluation disabled"}
+
+    response = state.final_response
+    query = state.sanitized_query or state.query
+    evidence = state.retrieved_docs
+
+    if not response:
+        return {"eval_score": 0.0, "eval_details": "empty response"}
+
+    h_score, h_details = _heuristic_score(response, query, evidence)
+
+    llm_score = _llm_judge_score(query, evidence, response)
+
+    if llm_score is not None:
+        combined = 0.6 * h_score + 0.4 * llm_score
+        method = "heuristic+judge"
+    else:
+        combined = h_score
+        method = "heuristic"
+
+    details_str = (
+        f"method={method}, "
+        f"length={h_details['length']:.2f}, "
+        f"grounding={h_details['grounding']:.2f}, "
+        f"relevance={h_details['relevance']:.2f}"
+        + (f", judge={llm_score:.2f}" if llm_score is not None else "")
+        + f", combined={combined:.2f}"
+    )
+
+    logger.info("Eval score: %.2f (%s)", combined, details_str)
 
     return {
         "eval_score": round(combined, 3),
-        "eval_details": ", ".join(details_parts),
+        "eval_details": details_str,
     }

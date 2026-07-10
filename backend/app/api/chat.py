@@ -62,6 +62,8 @@ def _build_result(values: dict, thread_id: str) -> dict:
         "risk_score": values.get("risk_score", 0.0),
         "risk_level": values.get("risk_level", "low"),
         "reasoning_path": values.get("reasoning_path", []),
+        "eval_score": values.get("eval_score", 1.0),
+        "eval_details": values.get("eval_details", ""),
         "step_count": values.get("step_count", 0),
         "approval_status": values.get("approval_status", "pending"),
     }

@@ -19,6 +19,8 @@ export interface ChatResult {
   risk_score: number;
   risk_level: string;
   reasoning_path: string[];
+  eval_score?: number;
+  eval_details?: string;
   step_count: number;
   approval_status?: string;
 }
@@ -142,6 +144,8 @@ function processBlock(block: string): StreamEvent[] {
           risk_score: data.risk_score,
           risk_level: data.risk_level,
           reasoning_path: data.reasoning_path,
+          eval_score: data.eval_score,
+          eval_details: data.eval_details,
           step_count: data.step_count,
           approval_status: data.approval_status,
         },

@@ -87,6 +87,7 @@ class Settings(BaseSettings):
     eval_judge_model: str | None = None
     eval_judge_api_key: str | None = None
     eval_judge_base_url: str | None = None
+    eval_judge_max_chars: int = 1500
 
     # ── Memory distillation ───────────────────────────────────────────
     memory_distill_enabled: bool = True

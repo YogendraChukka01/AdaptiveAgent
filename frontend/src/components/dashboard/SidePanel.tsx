@@ -5,6 +5,8 @@ interface Props {
     risk_score?: number;
     risk_level?: string;
     reasoning_path?: string[];
+    eval_score?: number;
+    eval_details?: string;
     citations?: Array<{
       source: string;
       chunk: string;
@@ -69,6 +71,13 @@ export function SidePanel({ result, onClose }: Props) {
             value={result.risk_score ?? 0}
             color={riskColor}
           />
+          {result.eval_score !== undefined && (
+            <ScoreBar
+              label="Eval"
+              value={(result.eval_score ?? 0) * 100}
+              color="var(--accent)"
+            />
+          )}
         </div>
 
         {result.reasoning_path && result.reasoning_path.length > 0 && (
