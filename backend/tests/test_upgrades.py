@@ -319,39 +319,43 @@ def test_embedder_lru_cache(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# 5. OpenAI-compatible embedder parsing (fake openai module)
+# 5. OpenAI-compatible embedder parsing (fake urllib)
 # ---------------------------------------------------------------------------
 def test_openai_compatible_embedder(monkeypatch):
-    fake = types.ModuleType("openai")
-
-    class _Data:
-        def __init__(self, emb):
-            self.embedding = emb
-
-    class _Resp:
-        def __init__(self, data):
-            self.data = data
-
-    class _Embeddings:
-        def create(self, model=None, input=None):
-            return _Resp([_Data([float(i)]) for i in range(len(input))])
-
-    class _Client:
-        def __init__(self, api_key=None, base_url=None):
-            self.embeddings = _Embeddings()
-
-    fake.OpenAI = _Client
-    monkeypatch.setitem(__import__("sys").modules, "openai", fake)
+    import json
+    import urllib.request
 
     from app.services.retrieval.embeddings.openai_embedder import (
         OpenAICompatibleEmbedder,
     )
 
+    payload = {
+        "data": [
+            {"embedding": [0.0], "index": 1},
+            {"embedding": [1.0], "index": 0},
+        ]
+    }
+
+    class _FakeResponse:
+        def read(self):
+            return json.dumps(payload).encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    def fake_urlopen(req, timeout=None):
+        return _FakeResponse()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
     emb = OpenAICompatibleEmbedder(
         model="text-embedding-3-small", api_key="x", base_url="http://x/v1"
     )
     out = emb.encode(["a", "b"])
-    assert out == [[0.0], [1.0]]
+    assert out == [[1.0], [0.0]]
 
 
 # ---------------------------------------------------------------------------

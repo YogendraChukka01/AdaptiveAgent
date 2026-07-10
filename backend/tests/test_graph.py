@@ -35,7 +35,14 @@ def test_graph():
 
 
 @pytest.mark.asyncio
-async def test_graph_execution(test_graph: CompiledStateGraph):
+async def test_graph_execution(test_graph: CompiledStateGraph, monkeypatch):
+    import app.graph.nodes.planner_node as planner_mod
+
+    def fake_create_plan(query: str) -> list[str]:
+        return ["retrieve", "respond"]
+
+    monkeypatch.setattr(planner_mod, "create_plan", fake_create_plan)
+
     state = AgentState(
         query="What is the capital of France?",
         messages=[],
