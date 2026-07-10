@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     auth_jwt_algorithm: str = "HS256"
     auth_token_expire_minutes: int = 60
 
+    # API key for authenticating API clients (X-API-Key header).
+    # Leave empty to disable auth (dev mode).
+    api_key: str = ""
+
     max_steps: int = 10
     max_tokens_per_response: int = 4096
     llm_cache_enabled: bool = True

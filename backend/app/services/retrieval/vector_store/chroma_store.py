@@ -24,7 +24,10 @@ def get_or_create_collection(name: str = "safeagent_docs"):
     try:
         return client.get_collection(name)
     except ValueError:
-        return client.create_collection(name)
+        try:
+            return client.create_collection(name)
+        except Exception:
+            return client.get_collection(name)
 
 
 def add_documents(

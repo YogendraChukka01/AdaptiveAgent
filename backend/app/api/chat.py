@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-import hmac
 import json
 import logging
 import time
 import uuid
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.errors import GraphInterrupt
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 
+from app.core.auth import require_api_key
 from app.core.config import settings
 from app.core.deps import get_graph
 from app.core.threads import (
@@ -62,7 +62,7 @@ def _build_result(values: dict, thread_id: str) -> dict:
         "risk_score": values.get("risk_score", 0.0),
         "risk_level": values.get("risk_level", "low"),
         "reasoning_path": values.get("reasoning_path", []),
-        "eval_score": values.get("eval_score", 1.0),
+        "eval_score": values.get("eval_score", 0.0),
         "eval_details": values.get("eval_details", ""),
         "step_count": values.get("step_count", 0),
         "approval_status": values.get("approval_status", "pending"),
@@ -192,6 +192,7 @@ async def _stream_events(
 async def chat(
     request: ChatRequest,
     graph: CompiledStateGraph = Depends(get_graph),
+    _auth: str = Depends(require_api_key),
 ):
     if not request.thread_id:
         request.thread_id = str(uuid.uuid4())
@@ -288,22 +289,11 @@ async def chat(
     return _build_result(values, thread_id)
 
 
-async def _require_auth(authorization: str | None = Header(None)):
-    if settings.auth_jwt_secret == "change-me-in-production":
-        return  # dev mode, no auth
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
-    token = authorization.removeprefix("Bearer ")
-    if not hmac.compare_digest(token, settings.auth_jwt_secret):
-        raise HTTPException(status_code=403, detail="Invalid API key")
-    return
-
-
 @router.post("/approve")
 async def approve_action(
     request: ApprovalRequest,
     graph: CompiledStateGraph = Depends(get_graph),
-    _auth: None = Depends(_require_auth),
+    _auth: str = Depends(require_api_key),
 ):
     config = {"configurable": {"thread_id": request.thread_id}}
 
@@ -322,7 +312,7 @@ async def approve_action(
 
 @router.get("/pending")
 async def list_pending_approvals(
-    _auth: None = Depends(_require_auth),
+    _auth: str = Depends(require_api_key),
 ):
     from app.core.threads import list_pending_approvals as _list
 

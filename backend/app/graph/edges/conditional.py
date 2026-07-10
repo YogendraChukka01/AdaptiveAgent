@@ -22,7 +22,9 @@ def route_after_planner(state: AgentState) -> Literal["tool_planner", "response"
     return "tool_planner"
 
 
-def route_after_retrieval(state: AgentState) -> Literal["evidence", "response"]:
+def route_after_retrieval(state: AgentState) -> Literal["evidence", "response", "error"]:
+    if state.error:
+        return "error"
     if not state.retrieved_docs:
         return "response"
     return "evidence"

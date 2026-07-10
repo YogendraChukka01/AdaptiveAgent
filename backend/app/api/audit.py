@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 
+from app.core.auth import require_api_key
 from app.core.database import async_session_factory
 from app.services.audit.audit import AuditLog
 
@@ -14,11 +15,8 @@ async def get_audit_logs(
     limit: int = 50,
     offset: int = 0,
     thread_id: str | None = None,
+    _auth: str = Depends(require_api_key),
 ):
-    from app.api.chat import _require_auth
-
-    await _require_auth(None)
-
     limit = min(limit, 200)
 
     async with async_session_factory() as session:

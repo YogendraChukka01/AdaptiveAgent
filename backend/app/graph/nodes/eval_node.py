@@ -26,7 +26,7 @@ def _heuristic_score(response: str, query: str, evidence: list) -> tuple[float, 
         evidence_parts: list[str] = []
         for doc in evidence:
             if isinstance(doc, dict):
-                evidence_parts.append(doc.get("document", ""))
+                evidence_parts.append(doc.get("content", ""))
             elif isinstance(doc, str):
                 evidence_parts.append(doc)
         evidence_text = " ".join(evidence_parts).lower()
@@ -73,12 +73,12 @@ def _llm_judge_score(query: str, evidence: list, response: str) -> float | None:
     if not settings.eval_judge_model:
         return None
     try:
-        from app.services.judge.faithfulness import score_faithfulness
+        from app.services.judge import score_faithfulness
 
         context_parts: list[str] = []
         for doc in evidence:
             if isinstance(doc, dict):
-                context_parts.append(doc.get("document", ""))
+                context_parts.append(doc.get("content", ""))
             elif isinstance(doc, str):
                 context_parts.append(doc)
         context_text = "\n".join(context_parts) if context_parts else "(no context)"

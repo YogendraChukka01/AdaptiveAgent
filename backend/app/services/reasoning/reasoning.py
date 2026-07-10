@@ -30,11 +30,11 @@ def reason_with_evidence(
     try:
         response = get_llm(temperature=0.2, max_tokens=2048).invoke(messages)
         content = response.content
-    except Exception as e:
+    except Exception:
         return (
             "I was unable to generate a response because the reasoning model is "
             "currently unavailable. Please try again later.",
-            [f"[error] reasoning model failed: {e}"],
+            ["[error] reasoning model unavailable"],
         )
 
     reasoning_parts: list[str] = []

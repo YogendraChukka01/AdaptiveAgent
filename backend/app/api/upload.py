@@ -5,8 +5,9 @@ import logging
 import os
 import uuid
 
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
+from app.core.auth import require_api_key
 from app.services.retrieval.embeddings.embedder import embed_texts
 from app.services.retrieval.vector_store.chroma_store import add_documents
 
@@ -51,6 +52,8 @@ def _extract_text(content: bytes, filename: str) -> str:
 def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]:
     if chunk_size <= 0:
         chunk_size = 500
+    if overlap < 0:
+        overlap = 0
     if overlap >= chunk_size:
         overlap = chunk_size // 4
     words = text.split()
@@ -67,7 +70,10 @@ def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str
 
 
 @router.post("")
-async def upload_document(file: UploadFile):
+async def upload_document(
+    file: UploadFile,
+    _auth: str = Depends(require_api_key),
+):
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
 

@@ -45,8 +45,27 @@ PII_PATTERNS: list[re.Pattern] = [
 ]
 
 SQL_INJECTION_PATTERNS: list[re.Pattern] = [
-    re.compile(r"\b(DROP|DELETE|INSERT|UPDATE|ALTER|TRUNCATE)\b", re.IGNORECASE),
-    re.compile(r"(--|;|'|/\*|1=1)"),
+    re.compile(r"\bUNION\s+(?:ALL\s+)?SELECT\b", re.IGNORECASE),
+    re.compile(r"\b(?:DROP|TRUNCATE)\s+TABLE\b", re.IGNORECASE),
+    re.compile(r"\bDELETE\s+FROM\b", re.IGNORECASE),
+    re.compile(r"[';]\s*UPDATE\s+\w+\s+SET\b", re.IGNORECASE),
+    re.compile(
+        r"[';]\s*insert\s+into\s+\w+\s*(?:\([^)]{0,100}\)\s*)?values\s*\(",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\bOR\s+\d+\s*=\s*\d+", re.IGNORECASE),
+    re.compile(r"\bxp_cmdshell\b", re.IGNORECASE),
+    re.compile(r"\binformation_schema\s*\.", re.IGNORECASE),
+    re.compile(r"[';]\s*--\s*$"),
+    re.compile(
+        r"(?:remove|ignore|bypass|skip)\s+(?:the\s+)?"
+        r"(?:filter|restriction|access\s+control|where\s+clause)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"regardless\s+of\s+(?:department|access|permission|role|authorization)",
+        re.IGNORECASE,
+    ),
 ]
 
 

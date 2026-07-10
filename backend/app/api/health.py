@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import httpx
@@ -12,6 +13,15 @@ from app.models.schemas import HealthResponse
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["health"])
 
+_health_client: httpx.AsyncClient | None = None
+
+
+def _get_health_client() -> httpx.AsyncClient:
+    global _health_client
+    if _health_client is None or _health_client.is_closed:
+        _health_client = httpx.AsyncClient(timeout=2.0)
+    return _health_client
+
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
@@ -20,19 +30,17 @@ async def health_check():
     db_ok = False
 
     try:
-        async with httpx.AsyncClient(timeout=2.0) as client:
-            r = await client.get(f"{settings.ollama_base_url}/api/tags")
-            ollama_ok = r.status_code == 200
+        client = _get_health_client()
+        r = await client.get(f"{settings.ollama_base_url}/api/tags")
+        ollama_ok = r.status_code == 200
     except Exception as e:
         logger.warning("Ollama health check failed: %s", e)
 
     try:
-        import asyncio
-
         from app.services.retrieval.vector_store.chroma_store import get_chroma_client
 
-        client = get_chroma_client()
-        await asyncio.to_thread(client.heartbeat)
+        chroma_client = get_chroma_client()
+        await asyncio.to_thread(chroma_client.heartbeat)
         chroma_ok = True
     except Exception as e:
         logger.warning("ChromaDB health check failed: %s", e)
