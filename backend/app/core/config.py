@@ -18,10 +18,24 @@ class Settings(BaseSettings):
     database_url_sync: str = "postgresql://safeagent:safeagent@localhost:5432/safeagent"
     redis_url: str = "redis://localhost:6379/0"
 
+    # ── Primary LLM provider ──────────────────────────────────────────
     llm_provider: str = "ollama"
     llm_model: str = "qwen2.5:7b"
     llm_base_url: str | None = None
     llm_api_key: str | None = None
+
+    # ── Cloud fallback (tried if primary fails) ───────────────────────
+    # Set llm_fallback_model to enable automatic provider switching.
+    # Example: "gpt-4o-mini", "anthropic/claude-sonnet-4-20250514", "groq/llama-3.1-70b-versatile"
+    llm_fallback_model: str | None = None
+    llm_fallback_api_key: str | None = None
+    llm_fallback_base_url: str | None = None
+    llm_fallback_provider: str | None = None
+
+    # ── LiteLLM behaviour knobs ───────────────────────────────────────
+    llm_request_timeout: int = 60
+    llm_num_retries: int = 2
+    llm_fallback_num_retries: int = 1
 
     ollama_base_url: str = "http://localhost:11434"
     ollama_embedding_model: str = "BAAI/bge-m3"
@@ -66,6 +80,18 @@ class Settings(BaseSettings):
     }
 
     max_query_length: int = 10000
+
+    # ── Evaluation node ───────────────────────────────────────────────
+    eval_enabled: bool = True
+    eval_threshold: float = 0.85
+    eval_judge_model: str | None = None
+    eval_judge_api_key: str | None = None
+    eval_judge_base_url: str | None = None
+
+    # ── Memory distillation ───────────────────────────────────────────
+    memory_distill_enabled: bool = True
+    memory_distill_interval_minutes: int = 30
+    memory_distill_max_messages: int = 200
 
     langsmith_api_key: str | None = None
     langsmith_project: str = "safeagent"

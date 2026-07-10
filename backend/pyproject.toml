@@ -34,6 +34,8 @@ dependencies = [
     "langsmith>=0.3.0",
     "prometheus-client>=0.21.0",
     "sunglasses>=0.2.70",
+    "litellm>=1.60.0",
+    "langchain-litellm>=0.1.0",
 ]
 
 [project.optional-dependencies]

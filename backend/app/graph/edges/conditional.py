@@ -63,3 +63,16 @@ def route_after_tools(state: AgentState) -> Literal["response", "refine", "error
     if any(not tc.success for tc in state.tool_calls):
         return "refine"
     return "response"
+
+
+def route_after_eval(state: AgentState) -> Literal["end", "refine"]:
+    """Route after the evaluation node.
+
+    If the eval score meets the threshold or the circuit breaker is
+    exhausted, finish.  Otherwise loop back to refine for another attempt.
+    """
+    if state.eval_score >= settings.eval_threshold:
+        return "end"
+    if state.step_count >= state.max_steps:
+        return "end"
+    return "refine"

@@ -57,6 +57,9 @@ class AgentState(BaseModel):
     final_response: str = ""
     citations: list[Citation] = Field(default_factory=list)
 
+    eval_score: float = 0.0
+    eval_details: str = ""
+
     step_count: int = 0
     max_steps: int = 10
     retry_count: int = 0

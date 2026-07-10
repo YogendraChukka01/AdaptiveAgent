@@ -7,6 +7,7 @@ from langgraph.graph.state import CompiledStateGraph
 from app.graph.edges.conditional import (
     route_after_approval,
     route_after_confidence,
+    route_after_eval,
     route_after_evidence,
     route_after_planner,
     route_after_retrieval,
@@ -17,6 +18,7 @@ from app.graph.edges.conditional import (
 from app.graph.nodes.approval_node import approval_node
 from app.graph.nodes.confidence_node import confidence_node
 from app.graph.nodes.error_node import error_node
+from app.graph.nodes.eval_node import eval_node
 from app.graph.nodes.evidence_node import evidence_node
 from app.graph.nodes.planner_node import planner_node
 from app.graph.nodes.reasoning_node import reasoning_node
@@ -47,6 +49,7 @@ def build_graph(checkpointer: AsyncPostgresSaver | None = None) -> CompiledState
     builder.add_node("tools", tools_node)
     builder.add_node("refine", refine_node)
     builder.add_node("response", response_node)
+    builder.add_node("eval", eval_node)
     builder.add_node("error", error_node)
 
     builder.set_entry_point("step_counter")
@@ -62,10 +65,11 @@ def build_graph(checkpointer: AsyncPostgresSaver | None = None) -> CompiledState
     builder.add_conditional_edges("risk", route_after_risk)
     builder.add_conditional_edges("approval", route_after_approval)
     builder.add_conditional_edges("tools", route_after_tools)
-    # Retry loop: refine the query and re-retrieve instead of re-running
-    # validation/planning/approval with the identical query.
     builder.add_edge("refine", "retrieval")
-    builder.add_edge("response", END)
+    # Post-generation evaluation: score the response, loop back to refine
+    # if quality is below threshold, otherwise finish.
+    builder.add_edge("response", "eval")
+    builder.add_conditional_edges("eval", route_after_eval, {"end": END, "refine": "refine"})
     builder.add_edge("error", END)
 
     graph = builder.compile(checkpointer=checkpointer)
