@@ -10,6 +10,8 @@ from app.services.llm import get_llm
 
 logger = logging.getLogger(__name__)
 
+_LLM_SEMAPHORE = asyncio.Semaphore(5)
+
 
 class MemoryDistiller:
     """Background worker that periodically distills conversation threads into
@@ -24,10 +26,11 @@ class MemoryDistiller:
         self._collection = None
         self._chroma_client = None
         self._running = False
+        self._chroma_unavailable = False
 
     def _ensure_chroma(self) -> None:
         """Lazily initialise the ChromaDB client and collection."""
-        if self._collection is not None:
+        if self._collection is not None or self._chroma_unavailable:
             return
         try:
             import chromadb
@@ -39,7 +42,7 @@ class MemoryDistiller:
             )
         except Exception:
             logger.warning("ChromaDB unavailable; memory distillation disabled")
-            self._collection = False  # type: ignore[assignment]
+            self._chroma_unavailable = True
 
     async def start(self) -> None:
         """Start the background distillation loop."""
@@ -74,17 +77,21 @@ class MemoryDistiller:
             except asyncio.CancelledError:
                 pass
             self._task = None
+        self._collection = None
+        self._chroma_client = None
 
     async def _distill(self) -> None:
         """Extract facts from recent conversations and store them."""
         self._ensure_chroma()
-        if not self._collection or self._collection is False:
+        if not self._collection:
             return
 
         from app.services.memory.memory import memory_manager
 
         r = await memory_manager.get_redis()
-        keys = await r.keys("conversation:*")
+        keys = []
+        async for key in r.scan_iter(match="conversation:*", count=100):
+            keys.append(key)
         if not keys:
             return
 
@@ -119,36 +126,35 @@ class MemoryDistiller:
 
     async def _extract_facts(self, messages: list[str]) -> list[str]:
         """Use LLM to extract factual statements about the user."""
-        try:
-            llm = get_llm(temperature=0.0, max_tokens=512)
-            conversation = "\n".join(messages[-20:])
-            prompt = (
-                "Extract key facts and durable preferences about this user "
-                "from the conversation. Return ONLY a JSON array of short "
-                "strings (one fact each). Include only facts that would be "
-                "useful in future conversations. Do not include transient "
-                "requests or opinions.\n\n"
-                f"Conversation:\n{conversation}\n\n"
-                'Return JSON array of fact strings, e.g. ["fact 1", "fact 2"]'
-            )
-            from langchain_core.messages import HumanMessage
+        async with _LLM_SEMAPHORE:
+            try:
+                llm = get_llm(temperature=0.0, max_tokens=512)
+                conversation = "\n".join(messages[-20:])
+                prompt = (
+                    "Extract key facts and durable preferences about this user "
+                    "from the conversation. Return ONLY a JSON array of short "
+                    "strings (one fact each). Include only facts that would be "
+                    "useful in future conversations. Do not include transient "
+                    "requests or opinions.\n\n"
+                    f"Conversation:\n{conversation}\n\n"
+                    'Return JSON array of fact strings, e.g. ["fact 1", "fact 2"]'
+                )
+                from langchain_core.messages import HumanMessage
 
-            response = llm.invoke([HumanMessage(content=prompt)])  # type: ignore[union-attr]
-            content = response.content.strip()  # type: ignore[union-attr]
-            # Strip markdown code fences if present
-            if content.startswith("```"):
-                content = content.split("\n", 1)[-1]
-                if content.endswith("```"):
-                    content = content[:-3]
-                content = content.strip()
-            return json.loads(content)
-        except Exception:
-            logger.debug("Fact extraction failed")
-            return []
+                response = llm.invoke([HumanMessage(content=prompt)])  # type: ignore[union-attr]
+                content = response.content.strip()  # type: ignore[union-attr]
+                # Strip markdown code fences if present
+                content = content.strip("`").strip()
+                if content.startswith("json\n"):
+                    content = content[5:]
+                return json.loads(content)
+            except Exception:
+                logger.debug("Fact extraction failed")
+                return []
 
     def _store_facts(self, thread_id: str, facts: list[str]) -> None:
         """Store facts in ChromaDB for cross-session retrieval."""
-        if not self._collection or self._collection is False:
+        if not self._collection:
             return
         now = datetime.now(timezone.utc).isoformat()
         for i, fact in enumerate(facts):
@@ -164,13 +170,14 @@ class MemoryDistiller:
                 ],
             )
 
-    def retrieve_facts(self, thread_id: str, query: str, k: int = 5) -> list[str]:
+    async def retrieve_facts(self, thread_id: str, query: str, k: int = 5) -> list[str]:
         """Retrieve relevant user facts for a new session."""
         self._ensure_chroma()
-        if not self._collection or self._collection is False:
+        if not self._collection:
             return []
         try:
-            results = self._collection.query(
+            results = await asyncio.to_thread(
+                self._collection.query,
                 query_texts=[query],
                 n_results=k,
                 include=["documents", "metadatas", "distances"],

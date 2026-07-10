@@ -47,8 +47,9 @@ export function ChatInput({ onSend, onUpload, disabled }: Props) {
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setInput(e.target.value);
+      if (fileError) setFileError(null);
     },
-    [],
+    [fileError],
   );
 
   const handleFileChange = useCallback(
@@ -78,7 +79,7 @@ export function ChatInput({ onSend, onUpload, disabled }: Props) {
       className="border-t border-[var(--border)] p-4"
     >
       {fileError && (
-        <div className="max-w-4xl mx-auto mb-2 text-xs text-red-400">{fileError}</div>
+        <div role="alert" className="max-w-4xl mx-auto mb-2 text-xs text-red-400">{fileError}</div>
       )}
       <div className="flex items-center gap-3 max-w-4xl mx-auto">
         <button

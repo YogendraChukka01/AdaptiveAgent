@@ -171,7 +171,7 @@ function processBlock(block: string): StreamEvent[] {
     } else if (err instanceof Error) {
       console.warn("SSE processing error:", err.message);
     } else {
-      throw err;
+      console.warn("Unknown SSE error:", String(err));
     }
   }
   return events;

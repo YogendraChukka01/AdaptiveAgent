@@ -6,8 +6,6 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-_llm_cache: object | None = None
-
 
 def _install_cache() -> None:
     """Enable LangChain's in-memory LLM cache when configured."""
@@ -136,6 +134,10 @@ def get_llm(
                 kwargs["api_key"] = api_key
             if base_url:
                 kwargs["api_base"] = base_url
+            if settings.llm_fallback_api_key:
+                kwargs["fallback_api_key"] = settings.llm_fallback_api_key
+            if settings.llm_fallback_base_url:
+                kwargs["fallback_api_base"] = settings.llm_fallback_base_url
 
             return ChatLiteLLM(**kwargs)
         except ImportError:

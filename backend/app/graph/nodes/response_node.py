@@ -31,11 +31,11 @@ def response_node(state: AgentState) -> dict:
 
     if response and not _is_safe_output(response):
         response = _REFUSAL
-
-    tool_results = [r for r in state.tool_results if r]
-    if tool_results:
-        joined = "\n\n".join(f"- {r}" for r in tool_results)
-        response = f"{response}\n\nTool results used:\n{joined}"
+    else:
+        tool_results = [r for r in state.tool_results if r]
+        if tool_results:
+            joined = "\n\n".join(f"- {r}" for r in tool_results)
+            response = f"{response}\n\nTool results used:\n{joined}"
 
     return {
         "final_response": response,

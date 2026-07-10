@@ -43,9 +43,13 @@ async def eval_node(state: AgentState) -> dict:
 
     # ── 2. Evidence grounding: fraction of response words found in evidence
     if evidence:
-        evidence_text = " ".join(
-            doc.get("document", "") for doc in evidence if isinstance(doc, dict)
-        ).lower()
+        evidence_parts = []
+        for doc in evidence:
+            if isinstance(doc, dict):
+                evidence_parts.append(doc.get("document", ""))
+            elif isinstance(doc, str):
+                evidence_parts.append(doc)
+        evidence_text = " ".join(evidence_parts).lower()
         response_words = set(response.lower().split())
         evidence_words = set(evidence_text.split())
         if response_words:
