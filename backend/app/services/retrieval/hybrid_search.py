@@ -25,9 +25,7 @@ def hybrid_search(
 
     documents = chroma_results["documents"][0]
     metadatas = (
-        chroma_results["metadatas"][0]
-        if chroma_results.get("metadatas")
-        else [{}] * len(documents)
+        chroma_results["metadatas"][0] if chroma_results.get("metadatas") else [{}] * len(documents)
     )
     distances = (
         chroma_results["distances"][0]
@@ -38,10 +36,7 @@ def hybrid_search(
     if not documents:
         return []
 
-    docs = [
-        Document(page_content=documents[i], metadata={"idx": i})
-        for i in range(len(documents))
-    ]
+    docs = [Document(page_content=documents[i], metadata={"idx": i}) for i in range(len(documents))]
 
     bm25 = BM25Retriever.from_documents(docs, k=dense_k)
     bm25_hits = bm25.invoke(query)
@@ -66,16 +61,16 @@ def hybrid_search(
     for doc_text, score, idx in reranked:
         original_idx = merged_indices[idx]
         meta = metadatas[original_idx] if original_idx < len(metadatas) else {}
-        results.append({
-            "content": doc_text,
-            "relevance_score": float(score),
-            "source": meta.get("source", "unknown"),
-            "page": meta.get("page"),
-            "dense_distance": (
-                float(distances[original_idx])
-                if original_idx < len(distances)
-                else 0.0
-            ),
-        })
+        results.append(
+            {
+                "content": doc_text,
+                "relevance_score": float(score),
+                "source": meta.get("source", "unknown"),
+                "page": meta.get("page"),
+                "dense_distance": (
+                    float(distances[original_idx]) if original_idx < len(distances) else 0.0
+                ),
+            }
+        )
 
     return results

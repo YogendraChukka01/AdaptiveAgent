@@ -32,9 +32,7 @@ def approval_node(state: AgentState) -> dict:
     )
 
     approved = (
-        bool(human_input.get("approved"))
-        if isinstance(human_input, dict)
-        else bool(human_input)
+        bool(human_input.get("approved")) if isinstance(human_input, dict) else bool(human_input)
     )
 
     return {"approval_status": "approved" if approved else "rejected"}

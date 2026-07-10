@@ -19,9 +19,7 @@ def _build_serde():
     try:
         from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 
-        return JsonPlusSerializer(
-            allowed_msgpack_modules=[("app.models.state", "ToolCallRecord")]
-        )
+        return JsonPlusSerializer(allowed_msgpack_modules=[("app.models.state", "ToolCallRecord")])
     except Exception:
         return None
 

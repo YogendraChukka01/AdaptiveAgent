@@ -10,18 +10,20 @@ def reason_with_evidence(
     documents: list[dict],
 ) -> tuple[str, list[str]]:
     context = "\n\n".join(
-        f"[Source: {d.get('source', 'unknown')}]\n{d.get('content', '')}"
-        for d in documents
+        f"[Source: {d.get('source', 'unknown')}]\n{d.get('content', '')}" for d in documents
     )
 
     messages = [
-        SystemMessage(content=(
-            "You are a safe, explainable AI assistant. Reason step-by-step using ONLY the\n"
-            "provided evidence. If evidence is insufficient, say so. Never fabricate information.\n"
-            "Format your response as:\n"
-            "REASONING: <step-by-step chain of thought>\n"
-            "ANSWER: <final answer>"
-        )),
+        SystemMessage(
+            content=(
+                "You are a safe, explainable AI assistant. Reason step-by-step using ONLY the\n"
+                "provided evidence. If evidence is insufficient, say so.\n"
+                "Never fabricate information.\n"
+                "Format your response as:\n"
+                "REASONING: <step-by-step chain of thought>\n"
+                "ANSWER: <final answer>"
+            )
+        ),
         HumanMessage(content=f"Query: {query}\n\nEvidence:\n{context}"),
     ]
 

@@ -5,9 +5,16 @@ from pydantic import BaseModel
 from app.models.state import ToolCallRecord
 
 # Tool categories that always demand human review regardless of model score.
-SENSITIVE_TOOLS: frozenset[str] = frozenset({
-    "delete", "admin", "write", "financial", "email", "database",
-})
+SENSITIVE_TOOLS: frozenset[str] = frozenset(
+    {
+        "delete",
+        "admin",
+        "write",
+        "financial",
+        "email",
+        "database",
+    }
+)
 
 
 class ApprovalDecision(BaseModel):

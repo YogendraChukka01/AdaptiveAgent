@@ -19,9 +19,7 @@ class RestReranker:
         timeout: int = 30,
     ) -> None:
         if not api_base:
-            raise ValueError(
-                "reranker_api_base must be set when reranker_provider='rest'"
-            )
+            raise ValueError("reranker_api_base must be set when reranker_provider='rest'")
         self._model = model
         self._api_base = api_base
         self._api_key = api_key
@@ -46,9 +44,7 @@ class RestReranker:
         if self._api_key:
             headers["Authorization"] = f"Bearer {self._api_key}"
 
-        req = urllib.request.Request(
-            self._api_base, data=body, headers=headers, method="POST"
-        )
+        req = urllib.request.Request(self._api_base, data=body, headers=headers, method="POST")
         with urllib.request.urlopen(req, timeout=self._timeout) as resp:
             payload = json.loads(resp.read().decode("utf-8"))
 

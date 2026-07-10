@@ -23,10 +23,7 @@ def calculate_confidence(
         "document_count": 0.30,
     }
 
-    total = sum(
-        factors.get(k, 0.0) * v
-        for k, v in weights.items()
-    )
+    total = sum(factors.get(k, 0.0) * v for k, v in weights.items())
 
     confidence = round(total * 100, 1)
     confidence = min(99.9, max(0.0, confidence))

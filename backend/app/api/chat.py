@@ -51,8 +51,7 @@ def _build_result(values: dict, thread_id: str) -> dict:
         "thread_id": thread_id,
         "response": values.get("final_response", ""),
         "citations": [
-            c.model_dump() if hasattr(c, "model_dump") else c
-            for c in values.get("citations", [])
+            c.model_dump() if hasattr(c, "model_dump") else c for c in values.get("citations", [])
         ],
         "confidence_score": values.get("confidence_score", 0.0),
         "risk_score": values.get("risk_score", 0.0),
@@ -142,27 +141,29 @@ async def _stream_events(
         await memory_manager.store_conversation(thread_id, "user", state.query or "")
         await memory_manager.store_conversation(thread_id, "assistant", response_text)
 
-    await record_audit({
-        "thread_id": thread_id,
-        "query": state.query or "",
-        "response": response_text,
-        "risk_score": values.get("risk_score", 0.0),
-        "risk_level": values.get("risk_level", "high"),
-        "confidence_score": values.get("confidence_score", 0.0),
-        "approval_status": values.get("approval_status", "pending"),
-        "tool_calls": [
-            t.model_dump() if hasattr(t, "model_dump") else t
-            for t in values.get("tool_calls", [])
-        ],
-        "citations": [
-            c.model_dump() if hasattr(c, "model_dump") else c
-            for c in values.get("citations", [])
-        ],
-        "execution_time_ms": (
-            int((time.time() - state.start_time) * 1000) if state.start_time else 0
-        ),
-        "step_count": values.get("step_count", 0),
-    })
+    await record_audit(
+        {
+            "thread_id": thread_id,
+            "query": state.query or "",
+            "response": response_text,
+            "risk_score": values.get("risk_score", 0.0),
+            "risk_level": values.get("risk_level", "high"),
+            "confidence_score": values.get("confidence_score", 0.0),
+            "approval_status": values.get("approval_status", "pending"),
+            "tool_calls": [
+                t.model_dump() if hasattr(t, "model_dump") else t
+                for t in values.get("tool_calls", [])
+            ],
+            "citations": [
+                c.model_dump() if hasattr(c, "model_dump") else c
+                for c in values.get("citations", [])
+            ],
+            "execution_time_ms": (
+                int((time.time() - state.start_time) * 1000) if state.start_time else 0
+            ),
+            "step_count": values.get("step_count", 0),
+        }
+    )
 
     yield "event: done\ndata: [DONE]\n\n"
 
@@ -181,10 +182,7 @@ async def chat(
     }
 
     history = await memory_manager.get_conversation(thread_id)
-    history_messages = [
-        HumanMessage(content=m["content"])
-        for m in history
-    ]
+    history_messages = [HumanMessage(content=m["content"]) for m in history]
 
     state = AgentState(
         query=last_message,
@@ -224,27 +222,29 @@ async def chat(
     resp = values.get("final_response", "")
     await memory_manager.store_conversation(thread_id, "assistant", resp)
 
-    await record_audit({
-        "thread_id": thread_id,
-        "query": last_message,
-        "response": values.get("final_response", ""),
-        "risk_score": values.get("risk_score", 0.0),
-        "risk_level": values.get("risk_level", "high"),
-        "confidence_score": values.get("confidence_score", 0.0),
-        "approval_status": values.get("approval_status", "pending"),
-        "tool_calls": [
-            t.model_dump() if hasattr(t, "model_dump") else t
-            for t in values.get("tool_calls", [])
-        ],
-        "citations": [
-            c.model_dump() if hasattr(c, "model_dump") else c
-            for c in values.get("citations", [])
-        ],
-        "execution_time_ms": (
-            int((time.time() - state.start_time) * 1000) if state.start_time else 0
-        ),
-        "step_count": values.get("step_count", 0),
-    })
+    await record_audit(
+        {
+            "thread_id": thread_id,
+            "query": last_message,
+            "response": values.get("final_response", ""),
+            "risk_score": values.get("risk_score", 0.0),
+            "risk_level": values.get("risk_level", "high"),
+            "confidence_score": values.get("confidence_score", 0.0),
+            "approval_status": values.get("approval_status", "pending"),
+            "tool_calls": [
+                t.model_dump() if hasattr(t, "model_dump") else t
+                for t in values.get("tool_calls", [])
+            ],
+            "citations": [
+                c.model_dump() if hasattr(c, "model_dump") else c
+                for c in values.get("citations", [])
+            ],
+            "execution_time_ms": (
+                int((time.time() - state.start_time) * 1000) if state.start_time else 0
+            ),
+            "step_count": values.get("step_count", 0),
+        }
+    )
 
     return _build_result(values, thread_id)
 

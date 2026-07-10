@@ -32,9 +32,7 @@ class OpenAICompatibleEmbedder:
         if self._api_key and self._api_key != "EMPTY":
             headers["Authorization"] = f"Bearer {self._api_key}"
 
-        req = urllib.request.Request(
-            self._url, data=body, headers=headers, method="POST"
-        )
+        req = urllib.request.Request(self._url, data=body, headers=headers, method="POST")
         with urllib.request.urlopen(req, timeout=self._timeout) as resp:
             payload = json.loads(resp.read().decode("utf-8"))
 

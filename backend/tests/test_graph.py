@@ -81,9 +81,7 @@ def test_refine_node_deterministic_fallback(monkeypatch):
     monkeypatch.setattr(refine_node_mod, "get_llm", boom)
 
     # With no missing terms the fallback broadens the query.
-    out = refine_node(
-        AgentState(query="q", sanitized_query="q", step_count=1, retry_count=2)
-    )
+    out = refine_node(AgentState(query="q", sanitized_query="q", step_count=1, retry_count=2))
     assert out["sanitized_query"] == "q overview"
     assert out["retry_count"] == 3
 

@@ -82,8 +82,7 @@ async def list_pending_approvals(
         age = now - entry.get("created_at", now)
         entry["age_seconds"] = age
         entry["expired"] = (
-            bool(settings.approval_ttl_seconds)
-            and age > settings.approval_ttl_seconds
+            bool(settings.approval_ttl_seconds) and age > settings.approval_ttl_seconds
         )
         if include_expired or not entry["expired"]:
             out.append(entry)

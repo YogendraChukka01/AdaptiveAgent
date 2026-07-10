@@ -31,10 +31,7 @@ def route_after_retrieval(state: AgentState) -> Literal["evidence", "response"]:
 def route_after_evidence(state: AgentState) -> Literal["reasoning", "refine", "error"]:
     if state.error:
         return "error"
-    if (
-        state.evidence_coverage < settings.evidence_threshold
-        and state.step_count < state.max_steps
-    ):
+    if state.evidence_coverage < settings.evidence_threshold and state.step_count < state.max_steps:
         return "refine"
     return "reasoning"
 

@@ -26,16 +26,12 @@ def test_low_relevance_docs():
 def test_full_coverage():
     docs = [
         {
-            "content": (
-                "Paris is the capital city of France located on the Seine river"
-            ),
+            "content": ("Paris is the capital city of France located on the Seine river"),
             "relevance_score": 0.9,
             "source": "en.wikipedia.org",
         },
         {
-            "content": (
-                "France borders Germany and Spain and has many famous landmarks"
-            ),
+            "content": ("France borders Germany and Spain and has many famous landmarks"),
             "relevance_score": 0.85,
             "source": "britannica.com",
         },
@@ -56,17 +52,13 @@ def test_contradiction_detected():
     docs = [
         {
             "content": (
-                "Paris is the capital of France. It is located in the north "
-                "of the country."
+                "Paris is the capital of France. It is located in the north of the country."
             ),
             "relevance_score": 0.9,
             "source": "wiki",
         },
         {
-            "content": (
-                "Paris is not the capital of France. The capital was moved "
-                "to Lyon."
-            ),
+            "content": ("Paris is not the capital of France. The capital was moved to Lyon."),
             "relevance_score": 0.85,
             "source": "blog",
         },
@@ -100,9 +92,7 @@ def test_non_credible_source():
 
 
 def test_missing_terms_reported():
-    docs = [
-        {"content": "Berlin has many museums", "relevance_score": 0.8, "source": "wiki"}
-    ]
+    docs = [{"content": "Berlin has many museums", "relevance_score": 0.8, "source": "wiki"}]
     result = verify_evidence("population Berlin Germany", docs)
     missing = " ".join(result["missing"]).lower()
     assert "population" in missing or "germany" in missing

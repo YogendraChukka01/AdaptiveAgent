@@ -28,6 +28,7 @@ async def health_check():
 
     try:
         from app.services.retrieval.vector_store.chroma_store import get_chroma_client
+
         get_chroma_client().heartbeat()
         chroma_ok = True
     except Exception as e:
@@ -35,6 +36,7 @@ async def health_check():
 
     try:
         from app.core.database import async_session_factory
+
         async with async_session_factory() as session:
             await session.execute(text("SELECT 1"))
             db_ok = True

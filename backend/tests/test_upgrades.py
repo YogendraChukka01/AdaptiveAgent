@@ -97,15 +97,35 @@ def test_approval_empty_inputs():
 # ---------------------------------------------------------------------------
 def _state(**kw):
     base = dict(
-        messages=[], query="", sanitized_query="", is_safe=False,
-        safety_issues=[], safety_confidence=0.0, plan=[],
-        current_plan_step=0, retrieved_docs=[], retrieval_scores=[],
-        evidence_coverage=0.0, evidence_contradictions=[], evidence_missing=[],
-        reasoning_path=[], reasoning_method="chain_of_thought",
-        confidence_score=0.0, confidence_factors={}, risk_score=0.0,
-        risk_level="high", risk_factors={}, approval_status="pending",
-        tool_calls=[], tool_results=[], final_response="", citations=[],
-        step_count=0, max_steps=10, error=None, start_time=0.0,
+        messages=[],
+        query="",
+        sanitized_query="",
+        is_safe=False,
+        safety_issues=[],
+        safety_confidence=0.0,
+        plan=[],
+        current_plan_step=0,
+        retrieved_docs=[],
+        retrieval_scores=[],
+        evidence_coverage=0.0,
+        evidence_contradictions=[],
+        evidence_missing=[],
+        reasoning_path=[],
+        reasoning_method="chain_of_thought",
+        confidence_score=0.0,
+        confidence_factors={},
+        risk_score=0.0,
+        risk_level="high",
+        risk_factors={},
+        approval_status="pending",
+        tool_calls=[],
+        tool_results=[],
+        final_response="",
+        citations=[],
+        step_count=0,
+        max_steps=10,
+        error=None,
+        start_time=0.0,
         end_time=0.0,
     )
     base.update(kw)
@@ -140,27 +160,21 @@ def _state(**kw):
         # tools
         (
             _state(
-                tool_calls=[
-                    ToolCallRecord(tool="x", input="{}", success=False)
-                ],
+                tool_calls=[ToolCallRecord(tool="x", input="{}", success=False)],
                 approval_status="approved",
             ),
             "response",
         ),
         (
             _state(
-                tool_calls=[
-                    ToolCallRecord(tool="x", input="{}", success=True)
-                ],
+                tool_calls=[ToolCallRecord(tool="x", input="{}", success=True)],
                 approval_status="approved",
             ),
             "response",
         ),
         (
             _state(
-                tool_calls=[
-                    ToolCallRecord(tool="x", input="{}", success=False)
-                ],
+                tool_calls=[ToolCallRecord(tool="x", input="{}", success=False)],
                 approval_status="approved",
                 step_count=10,
             ),
@@ -169,9 +183,7 @@ def _state(**kw):
         (
             _state(
                 error="e",
-                tool_calls=[
-                    ToolCallRecord(tool="x", input="{}", success=False)
-                ],
+                tool_calls=[ToolCallRecord(tool="x", input="{}", success=False)],
                 approval_status="approved",
             ),
             "error",
@@ -189,17 +201,14 @@ def test_routing_matrix(state, exp):
         route_after_validation,
     )
 
-    assert (
-        route_after_validation(state) == exp
-        if exp in ("error", "planner")
-        else True
-    )
+    assert route_after_validation(state) == exp if exp in ("error", "planner") else True
     mapping = {
         "error": route_after_validation(state),
         "planner": route_after_validation(state),
         "tool_planner": route_after_planner(state),
         "response": (
-            route_after_retrieval(state) if not state.retrieved_docs
+            route_after_retrieval(state)
+            if not state.retrieved_docs
             else route_after_evidence(state)
             if state.evidence_coverage < 0.3 and state.step_count < state.max_steps
             else route_after_evidence(state)
@@ -363,9 +372,7 @@ def test_threads_best_effort(monkeypatch):
 
     from app.core import threads
 
-    asyncio.run(
-        threads.track_pending_approval("t1", "high", 90.0, "delete")
-    )
+    asyncio.run(threads.track_pending_approval("t1", "high", 90.0, "delete"))
     pending = asyncio.run(threads.list_pending_approvals())
     assert len(pending) == 1
     assert pending[0]["thread_id"] == "t1"
@@ -413,9 +420,17 @@ def test_chat_helpers():
 
     # build_result
     res = chat_mod._build_result(
-        {"final_response": "hi", "confidence_score": 1.0, "risk_score": 2.0,
-         "risk_level": "low", "reasoning_path": ["r"], "step_count": 3,
-         "approval_status": "approved", "citations": [], "tool_calls": []},
+        {
+            "final_response": "hi",
+            "confidence_score": 1.0,
+            "risk_score": 2.0,
+            "risk_level": "low",
+            "reasoning_path": ["r"],
+            "step_count": 3,
+            "approval_status": "approved",
+            "citations": [],
+            "tool_calls": [],
+        },
         "tid",
     )
     assert res["response"] == "hi"
@@ -451,24 +466,23 @@ def _patch_nodes(monkeypatch, tool_names, reason_answer="The answer is 42."):
     from app.services.validator.validator import ValidationResult
 
     monkeypatch.setattr(
-        val_node, "validate_query",
+        val_node,
+        "validate_query",
         lambda q: ValidationResult(is_safe=True, issues=[], confidence=1.0),
     )
     monkeypatch.setattr(plan_node, "create_plan", lambda q: ["retrieve", "respond"])
     monkeypatch.setattr(ret_node, "embed_query", lambda t: [0.1] * 8)
     monkeypatch.setattr(
-        ret_node, "hybrid_search",
+        ret_node,
+        "hybrid_search",
         lambda q, e, **kw: [
             {"content": "doc", "relevance_score": 0.8, "source": "wikipedia", "page": 1}
         ],
     )
-    monkeypatch.setattr(
-        reas_node, "reason_with_evidence", lambda q, d: (reason_answer, ["step1"])
-    )
+    monkeypatch.setattr(reas_node, "reason_with_evidence", lambda q, d: (reason_answer, ["step1"]))
+
     def _execute_tool(n, a):
-        return ToolCallRecord(
-            tool=n, input=str(a), output="ok", success=True, duration_ms=1.0
-        )
+        return ToolCallRecord(tool=n, input=str(a), output="ok", success=True, duration_ms=1.0)
 
     monkeypatch.setattr(tool_node, "execute_tool", _execute_tool)
 
@@ -482,9 +496,9 @@ def _patch_nodes(monkeypatch, tool_names, reason_answer="The answer is 42."):
 @pytest.mark.parametrize(
     "tool_names,action,exp_status,exp_interrupt,exp_tools_ran",
     [
-        ([], "approve", "approved", False, False),       # low/medium, no pause
+        ([], "approve", "approved", False, False),  # low/medium, no pause
         (["web_search"], "approve", "approved", False, False),
-        (["delete_records"], "approve", "approved", True, True),   # high -> pause -> approve
+        (["delete_records"], "approve", "approved", True, True),  # high -> pause -> approve
         (["delete_records"], "reject", "rejected", True, False),  # high -> pause -> reject
         (["admin_console", "web_search"], "approve", "approved", True, True),
     ],
@@ -499,8 +513,11 @@ def test_graph_scenarios(monkeypatch, tool_names, action, exp_status, exp_interr
 
     async def run():
         st = AgentState(
-            query="do something", messages=[], step_count=0,
-            max_steps=10, start_time=0.0,
+            query="do something",
+            messages=[],
+            step_count=0,
+            max_steps=10,
+            start_time=0.0,
         )
         r = await g.ainvoke(st, config={"configurable": {"thread_id": "s1"}})
         interrupted = "__interrupt__" in r
@@ -524,4 +541,4 @@ def test_graph_scenarios(monkeypatch, tool_names, action, exp_status, exp_interr
         assert vals["tool_results"] == ["ok"] * len(tool_names), vals
     else:
         # either no tools configured or rejected
-        assert vals["tool_results"] in ([], ["ok"]) , vals
+        assert vals["tool_results"] in ([], ["ok"]), vals
