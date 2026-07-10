@@ -24,8 +24,16 @@ def hybrid_search(
         return []
 
     documents = chroma_results["documents"][0]
-    metadatas = chroma_results["metadatas"][0] if chroma_results.get("metadatas") else [{}] * len(documents)
-    distances = chroma_results["distances"][0] if chroma_results.get("distances") else [0.0] * len(documents)
+    metadatas = (
+        chroma_results["metadatas"][0]
+        if chroma_results.get("metadatas")
+        else [{}] * len(documents)
+    )
+    distances = (
+        chroma_results["distances"][0]
+        if chroma_results.get("distances")
+        else [0.0] * len(documents)
+    )
 
     if not documents:
         return []
@@ -63,7 +71,11 @@ def hybrid_search(
             "relevance_score": float(score),
             "source": meta.get("source", "unknown"),
             "page": meta.get("page"),
-            "dense_distance": float(distances[original_idx]) if original_idx < len(distances) else 0.0,
+            "dense_distance": (
+                float(distances[original_idx])
+                if original_idx < len(distances)
+                else 0.0
+            ),
         })
 
     return results

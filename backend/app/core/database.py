@@ -34,3 +34,11 @@ async def get_session() -> AsyncSession:
             raise
         finally:
             await session.close()
+
+
+async def init_db() -> None:
+    """Create tables for all SQLAlchemy models (idempotent)."""
+    from app.services.audit.audit import AuditLog  # noqa: F401  (register model)
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)

@@ -27,6 +27,21 @@ class Settings(BaseSettings):
     ollama_embedding_model: str = "BAAI/bge-m3"
     ollama_reranker_model: str = "BAAI/bge-reranker-v2-m3"
 
+    # Embedding backend. "bge" (FlagEmbedding, default) or "openai"
+    # (any OpenAI-compatible embeddings API: Ollama /v1/embeddings, vLLM,
+    # Together, OpenAI, ...). For "openai", set embedding_api_base /
+    # embedding_api_key if not using api.openai.com.
+    embedding_provider: str = "bge"
+    embedding_model: str = "BAAI/bge-m3"
+    embedding_api_base: str | None = None
+    embedding_api_key: str | None = None
+
+    # Reranker backend. "bge" (FlagEmbedding, default) or "rest"
+    # (any Jina/Cohere/Voyage-shaped rerank API; set reranker_api_base).
+    reranker_provider: str = "bge"
+    reranker_api_base: str | None = None
+    reranker_api_key: str | None = None
+
     chroma_persist_directory: str = "./chroma_data"
 
     auth_jwt_secret: str = "change-me-in-production"
@@ -35,7 +50,10 @@ class Settings(BaseSettings):
 
     max_steps: int = 10
     max_tokens_per_response: int = 4096
+    llm_cache_enabled: bool = True
     confidence_threshold: float = 0.7
+    # Retry threshold on the 0-100 confidence scale returned by calculate_confidence.
+    confidence_retry_threshold: float = 30.0
     high_risk_threshold: float = 70.0
 
     evidence_threshold: float = 0.3
@@ -51,6 +69,10 @@ class Settings(BaseSettings):
 
     langsmith_api_key: str | None = None
     langsmith_project: str = "safeagent"
+
+    # Seconds an approval request is considered live before it is treated as
+    # expired (see app.core.threads). 0 disables expiry tracking.
+    approval_ttl_seconds: int = 86400
 
     cors_origins: list[str] = ["http://localhost:3000"]
 

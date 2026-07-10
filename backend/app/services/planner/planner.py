@@ -6,7 +6,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.services.llm import get_llm
 
-SYSTEM_PROMPT = """You are a task planner for a safe RAG agent. Break the user's query into a sequential plan of steps.
+SYSTEM_PROMPT = """You are a planner for a safe RAG agent. Produce a sequential plan of steps.
 Available actions:
 - retrieve: search for relevant documents
 - analyze: examine retrieved information

@@ -6,6 +6,8 @@ export interface ChatMessage {
 }
 
 export interface ChatResult {
+  needs_approval?: boolean;
+  thread_id?: string;
   response: string;
   citations: Array<{
     source: string;
@@ -17,12 +19,29 @@ export interface ChatResult {
   risk_level: string;
   reasoning_path: string[];
   step_count: number;
+  approval_status?: string;
 }
+
+export interface ApprovalPayload {
+  needs_approval: true;
+  thread_id: string;
+  risk_level: string | null;
+  risk_score: number | null;
+  approval_status: string | null;
+  reason?: string | null;
+  pending_tools?: string[];
+  triggering_factors?: string[];
+}
+
+export type StreamEvent =
+  | { type: "token"; token: string }
+  | { type: "complete"; result: ChatResult }
+  | { type: "needs_approval"; payload: ApprovalPayload };
 
 export async function* streamChat(
   messages: ChatMessage[],
   threadId: string,
-): AsyncGenerator<string, ChatResult> {
+): AsyncGenerator<StreamEvent, void> {
   const response = await fetch(`${API_BASE}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -46,47 +65,37 @@ export async function* streamChat(
     if (done) break;
 
     buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n\n");
-    buffer = lines.pop() || "";
+    const blocks = buffer.split("\n\n");
+    buffer = blocks.pop() || "";
 
-    for (const line of lines) {
+    for (const line of blocks) {
       if (line.startsWith("event: token\ndata: ")) {
         const data = JSON.parse(line.replace("event: token\ndata: ", ""));
-        yield data.token;
+        yield { type: "token", token: data.token };
       } else if (line.startsWith("event: complete\ndata: ")) {
         const data = JSON.parse(line.replace("event: complete\ndata: ", ""));
-        return {
-          response: data.response,
-          citations: data.citations || [],
-          confidence_score: data.confidence_score,
-          risk_score: data.risk_score,
-          risk_level: data.risk_level,
-          reasoning_path: data.reasoning_path,
-          step_count: data.step_count,
-        } as ChatResult;
+        yield {
+          type: "complete",
+          result: {
+            needs_approval: false,
+            response: data.response,
+            citations: data.citations || [],
+            confidence_score: data.confidence_score,
+            risk_score: data.risk_score,
+            risk_level: data.risk_level,
+            reasoning_path: data.reasoning_path,
+            step_count: data.step_count,
+            approval_status: data.approval_status,
+          } as ChatResult,
+        };
+      } else if (line.startsWith("event: needs_approval\ndata: ")) {
+        const data = JSON.parse(line.replace("event: needs_approval\ndata: ", ""));
+        yield { type: "needs_approval", payload: data as ApprovalPayload };
       } else if (line.startsWith("event: done")) {
-        return {
-          response: "",
-          citations: [],
-          confidence_score: 0,
-          risk_score: 0,
-          risk_level: "low",
-          reasoning_path: [],
-          step_count: 0,
-        } as ChatResult;
+        return;
       }
     }
   }
-
-  return {
-    response: "",
-    citations: [],
-    confidence_score: 0,
-    risk_score: 0,
-    risk_level: "low",
-    reasoning_path: [],
-    step_count: 0,
-  } as ChatResult;
 }
 
 export async function sendMessage(
@@ -127,7 +136,7 @@ export async function uploadDocument(
 export async function approveAction(
   threadId: string,
   action: "approve" | "reject",
-): Promise<{ status: string; response: string }> {
+): Promise<ChatResult> {
   const response = await fetch(`${API_BASE}/chat/approve`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

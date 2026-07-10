@@ -9,6 +9,23 @@ from psycopg_pool import AsyncConnectionPool
 from app.core.config import settings
 from app.graph.builder import build_graph
 
+
+def _build_serde():
+    """Build the checkpoint serializer, registering pydantic state types.
+
+    Without this, LangGraph warns (and future versions will refuse) when
+    checkpointing pydantic models such as ToolCallRecord.
+    """
+    try:
+        from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+        return JsonPlusSerializer(
+            allowed_msgpack_modules=[("app.models.state", "ToolCallRecord")]
+        )
+    except Exception:
+        return None
+
+
 _graph: CompiledStateGraph | None = None
 _pool: AsyncConnectionPool | None = None
 
@@ -24,7 +41,8 @@ async def init_graph() -> CompiledStateGraph:
         open=True,
         timeout=30,
     )
-    checkpointer = AsyncPostgresSaver(pool=_pool)
+    serde = _build_serde()
+    checkpointer = AsyncPostgresSaver(pool=_pool, serde=serde)
     await checkpointer.setup()
     _graph = build_graph(checkpointer=checkpointer)
     return _graph

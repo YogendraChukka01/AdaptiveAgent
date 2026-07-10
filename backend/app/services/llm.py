@@ -3,6 +3,27 @@ from __future__ import annotations
 from app.core.config import settings
 
 
+def _install_cache() -> None:
+    """Enable LangChain's in-memory LLM cache when configured.
+
+    Caching identical prompts (planner/tool-planner/reasoning calls) avoids
+    redundant model round-trips and cost. Disabled by default-safe flag.
+    """
+    if not settings.llm_cache_enabled:
+        return
+    try:
+        from langchain_core.caches import InMemoryCache
+        from langchain_core.globals import set_llm_cache
+
+        set_llm_cache(InMemoryCache())
+    except Exception:
+        # Caching is a best-effort optimisation; never fail startup over it.
+        pass
+
+
+_install_cache()
+
+
 def get_llm(
     temperature: float = 0.0,
     max_tokens: int | None = None,

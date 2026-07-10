@@ -6,17 +6,87 @@ import time
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
+from langgraph.errors import GraphInterrupt
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 
 from app.core.config import settings
 from app.core.deps import get_graph
+from app.core.threads import (
+    clear_pending_approval,
+    track_pending_approval,
+)
 from app.models.schemas import ApprovalRequest, ChatRequest
 from app.models.state import AgentState
 from app.services.audit.audit import record_audit
 from app.services.memory.memory import memory_manager
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+def _recursion_limit() -> int:
+    """Safely bound graph execution.
+
+    A single retry-loop pass executes ~12 nodes (step_counter -> validator ->
+    planner -> tool_planner -> retrieval -> evidence -> reasoning -> confidence
+    -> risk -> approval -> tools -> response). With ``max_steps`` allowing up to
+    that many loop iterations, the hard recursion limit must sit well above
+    ``max_steps * 12`` or LangGraph raises ``GraphRecursionError`` *before* the
+    ``step_count`` circuit breaker can stop the loop. The 50 default fails that.
+    """
+    return max(50, settings.max_steps * 15)
+
+
+def _unwrap(result) -> dict:
+    if isinstance(result, dict):
+        return result
+    if hasattr(result, "values"):
+        return result.values
+    return {}
+
+
+def _build_result(values: dict, thread_id: str) -> dict:
+    return {
+        "needs_approval": False,
+        "thread_id": thread_id,
+        "response": values.get("final_response", ""),
+        "citations": [
+            c.model_dump() if hasattr(c, "model_dump") else c
+            for c in values.get("citations", [])
+        ],
+        "confidence_score": values.get("confidence_score", 0.0),
+        "risk_score": values.get("risk_score", 0.0),
+        "risk_level": values.get("risk_level", "low"),
+        "reasoning_path": values.get("reasoning_path", []),
+        "step_count": values.get("step_count", 0),
+        "approval_status": values.get("approval_status", "pending"),
+    }
+
+
+def _build_approval_payload(values: dict, thread_id: str, inter_value: dict | None) -> dict:
+    inter_value = inter_value or {}
+    return {
+        "needs_approval": True,
+        "thread_id": thread_id,
+        "risk_level": values.get("risk_level"),
+        "risk_score": values.get("risk_score"),
+        "approval_status": values.get("approval_status"),
+        "reason": inter_value.get("reason"),
+        "pending_tools": inter_value.get("pending_tools", []),
+        "triggering_factors": inter_value.get("triggering_factors", []),
+    }
+
+
+def _extract_interrupt(result: dict | None, snapshot) -> dict | None:
+    if isinstance(result, dict):
+        interrupts = result.get("__interrupt__")
+        if interrupts:
+            return interrupts[0].value
+    for task in getattr(snapshot, "tasks", ()) or ():
+        interrupts = getattr(task, "interrupts", None)
+        if interrupts:
+            return interrupts[0].value
+    return None
 
 
 async def _stream_events(
@@ -26,42 +96,48 @@ async def _stream_events(
     thread_id: str,
     history: list | None = None,
 ):
-    async for event in graph.astream_events(
-        state,
-        config=config,
-        version="v2",
-    ):
-        kind = event.get("event", "")
-        if kind == "on_chain_start":
-            node = event.get("name", "")
-            yield f"event: node_start\ndata: {json.dumps({'node': node})}\n\n"
-        elif kind == "on_chain_end":
-            node = event.get("name", "")
-            yield f"event: node_end\ndata: {json.dumps({'node': node})}\n\n"
-        elif kind == "on_chat_model_stream":
-            data = event.get("data", {})
-            chunk = data.get("chunk", "")
-            if chunk and hasattr(chunk, "content"):
-                yield f"event: token\ndata: {json.dumps({'token': chunk.content})}\n\n"
+    interrupted = False
+    try:
+        async for event in graph.astream_events(
+            state,
+            config=config,
+            version="v2",
+        ):
+            kind = event.get("event", "")
+            if kind == "on_chain_start":
+                node = event.get("name", "")
+                yield f"event: node_start\ndata: {json.dumps({'node': node})}\n\n"
+            elif kind == "on_chain_end":
+                node = event.get("name", "")
+                yield f"event: node_end\ndata: {json.dumps({'node': node})}\n\n"
+            elif kind == "on_chat_model_stream":
+                data = event.get("data", {})
+                chunk = data.get("chunk", "")
+                if chunk and hasattr(chunk, "content"):
+                    yield f"event: token\ndata: {json.dumps({'token': chunk.content})}\n\n"
+    except GraphInterrupt:
+        interrupted = True
 
-    final_state = await graph.aget_state(config)
-    result = final_state.values
+    snapshot = await graph.aget_state(config)
 
-    complete_data = json.dumps({
-        'response': result.get('final_response', ''),
-        'confidence_score': result.get('confidence_score', 0.0),
-        'risk_score': result.get('risk_score', 0.0),
-        'risk_level': result.get('risk_level', 'low'),
-        'reasoning_path': result.get('reasoning_path', []),
-        'citations': [
-            c.model_dump() if hasattr(c, 'model_dump') else c
-            for c in result.get('citations', [])
-        ],
-        'step_count': result.get('step_count', 0),
-    })
+    if interrupted or snapshot.next:
+        inter_value = _extract_interrupt(None, snapshot)
+        payload = _build_approval_payload(snapshot.values, thread_id, inter_value)
+        await track_pending_approval(
+            thread_id,
+            payload.get("risk_level"),
+            payload.get("risk_score"),
+            state.query or "",
+        )
+        yield f"event: needs_approval\ndata: {json.dumps(payload)}\n\n"
+        yield "event: done\ndata: [DONE]\n\n"
+        return
+
+    values = snapshot.values
+    complete_data = json.dumps(_build_result(values, thread_id))
     yield f"event: complete\ndata: {complete_data}\n\n"
 
-    response_text = result.get('final_response', '')
+    response_text = values.get("final_response", "")
     if response_text:
         await memory_manager.store_conversation(thread_id, "user", state.query or "")
         await memory_manager.store_conversation(thread_id, "assistant", response_text)
@@ -70,22 +146,22 @@ async def _stream_events(
         "thread_id": thread_id,
         "query": state.query or "",
         "response": response_text,
-        "risk_score": result.get("risk_score", 0.0),
-        "risk_level": result.get("risk_level", "high"),
-        "confidence_score": result.get("confidence_score", 0.0),
-        "approval_status": result.get("approval_status", "pending"),
+        "risk_score": values.get("risk_score", 0.0),
+        "risk_level": values.get("risk_level", "high"),
+        "confidence_score": values.get("confidence_score", 0.0),
+        "approval_status": values.get("approval_status", "pending"),
         "tool_calls": [
             t.model_dump() if hasattr(t, "model_dump") else t
-            for t in result.get("tool_calls", [])
+            for t in values.get("tool_calls", [])
         ],
         "citations": [
             c.model_dump() if hasattr(c, "model_dump") else c
-            for c in result.get("citations", [])
+            for c in values.get("citations", [])
         ],
         "execution_time_ms": (
             int((time.time() - state.start_time) * 1000) if state.start_time else 0
         ),
-        "step_count": result.get("step_count", 0),
+        "step_count": values.get("step_count", 0),
     })
 
     yield "event: done\ndata: [DONE]\n\n"
@@ -101,7 +177,7 @@ async def chat(
 
     config = {
         "configurable": {"thread_id": thread_id},
-        "recursion_limit": 50,
+        "recursion_limit": _recursion_limit(),
     }
 
     history = await memory_manager.get_conversation(thread_id)
@@ -114,7 +190,7 @@ async def chat(
         query=last_message,
         messages=[*history_messages, HumanMessage(content=last_message)],
         step_count=0,
-        max_steps=10,
+        max_steps=settings.max_steps,
         start_time=time.time(),
     )
 
@@ -129,49 +205,48 @@ async def chat(
             },
         )
 
-    final_state = await graph.ainvoke(state, config=config)
-    if isinstance(final_state, dict):
-        result = final_state
-    elif hasattr(final_state, "values"):
-        result = final_state.values
-    else:
-        result = {}
+    result = await graph.ainvoke(state, config=config)
+    values = _unwrap(result)
+
+    if isinstance(result, dict) and result.get("__interrupt__"):
+        snapshot = await graph.aget_state(config)
+        inter_value = _extract_interrupt(result, snapshot)
+        payload = _build_approval_payload(values, thread_id, inter_value)
+        await track_pending_approval(
+            thread_id,
+            payload.get("risk_level"),
+            payload.get("risk_score"),
+            last_message,
+        )
+        return payload
 
     await memory_manager.store_conversation(thread_id, "user", last_message)
-    resp = result.get("final_response", "")
+    resp = values.get("final_response", "")
     await memory_manager.store_conversation(thread_id, "assistant", resp)
 
     await record_audit({
         "thread_id": thread_id,
         "query": last_message,
-        "response": result.get("final_response", ""),
-        "risk_score": result.get("risk_score", 0.0),
-        "risk_level": result.get("risk_level", "high"),
-        "confidence_score": result.get("confidence_score", 0.0),
-        "approval_status": result.get("approval_status", "pending"),
+        "response": values.get("final_response", ""),
+        "risk_score": values.get("risk_score", 0.0),
+        "risk_level": values.get("risk_level", "high"),
+        "confidence_score": values.get("confidence_score", 0.0),
+        "approval_status": values.get("approval_status", "pending"),
         "tool_calls": [
             t.model_dump() if hasattr(t, "model_dump") else t
-            for t in result.get("tool_calls", [])
+            for t in values.get("tool_calls", [])
         ],
         "citations": [
             c.model_dump() if hasattr(c, "model_dump") else c
-            for c in result.get("citations", [])
+            for c in values.get("citations", [])
         ],
         "execution_time_ms": (
             int((time.time() - state.start_time) * 1000) if state.start_time else 0
         ),
-        "step_count": result.get("step_count", 0),
+        "step_count": values.get("step_count", 0),
     })
 
-    return {
-        "response": result.get("final_response", ""),
-        "citations": result.get("citations", []),
-        "confidence_score": result.get("confidence_score", 0.0),
-        "risk_score": result.get("risk_score", 0.0),
-        "risk_level": result.get("risk_level", "low"),
-        "reasoning_path": result.get("reasoning_path", []),
-        "step_count": result.get("step_count", 0),
-    }
+    return _build_result(values, thread_id)
 
 
 async def _require_auth(authorization: str | None = Header(None)):
@@ -193,13 +268,23 @@ async def approve_action(
 ):
     config = {"configurable": {"thread_id": request.thread_id}}
 
-    approved = request.action == "approve"
-    graph.invoke(Command(resume={"approved": approved}), config=config)
+    await graph.ainvoke(
+        Command(resume={"approved": request.action == "approve"}),
+        config=config,
+    )
 
-    final_state = await graph.aget_state(config)
-    result = final_state.values
+    await clear_pending_approval(request.thread_id)
 
-    return {
-        "status": "approved" if approved else "rejected",
-        "response": result.get("final_response", ""),
-    }
+    snapshot = await graph.aget_state(config)
+    values = snapshot.values
+
+    return _build_result(values, request.thread_id)
+
+
+@router.get("/pending")
+async def list_pending_approvals(
+    _auth: None = Depends(_require_auth),
+):
+    from app.core.threads import list_pending_approvals as _list
+
+    return await _list(include_expired=True)

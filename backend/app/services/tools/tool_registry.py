@@ -28,6 +28,8 @@ def web_search(query: str) -> str:
 
 _ALLOWED_READ_DIRS: list[str] = [os.getcwd()]
 
+AVAILABLE_TOOLS: set[str] = {"web_search", "read_file"}
+
 
 def configure_read_dirs(dirs: list[str]) -> None:
     _ALLOWED_READ_DIRS.clear()
@@ -37,12 +39,12 @@ def configure_read_dirs(dirs: list[str]) -> None:
 @tool
 def read_file(filepath: str) -> str:
     """Read a file. Input: absolute file path (must be within allowed directories)."""
-    resolved = os.path.abspath(os.path.normpath(filepath))
+    resolved = os.path.realpath(os.path.normpath(filepath))
     if _ALLOWED_READ_DIRS:
         allowed = False
         for d in _ALLOWED_READ_DIRS:
-            allowed_dir = os.path.abspath(os.path.normpath(d))
-            if resolved.startswith(allowed_dir + os.sep) or resolved == allowed_dir:
+            allowed_dir = os.path.realpath(os.path.normpath(d))
+            if resolved == allowed_dir or resolved.startswith(allowed_dir + os.sep):
                 allowed = True
                 break
         if not allowed:

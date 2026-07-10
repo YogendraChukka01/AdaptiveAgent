@@ -18,6 +18,9 @@ class MemoryManager:
             self._redis = redis.from_url(settings.redis_url, decode_responses=True)
         return self._redis
 
+    async def get_redis(self) -> redis.Redis:
+        return await self._get_redis()
+
     async def store_conversation(
         self,
         thread_id: str,

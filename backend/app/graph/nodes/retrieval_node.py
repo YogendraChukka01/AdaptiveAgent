@@ -11,8 +11,13 @@ def retrieval_node(state: AgentState) -> dict:
     if not query.strip():
         return {"retrieved_docs": [], "retrieval_scores": []}
 
+    # On retries, widen the candidate surface area (CRAG: don't optimise k too
+    # early). More candidates => a better chance the reranker keeps relevant ones.
+    dense_k = 20 + state.retry_count * 10
+    final_k = min(5 + state.retry_count * 3, 20)
+
     query_embedding = embed_query(query)
-    results = hybrid_search(query, query_embedding)
+    results = hybrid_search(query, query_embedding, dense_k=dense_k, final_k=final_k)
 
     docs = []
     scores = []

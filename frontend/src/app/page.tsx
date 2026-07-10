@@ -1,9 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChatMessage, streamChat, uploadDocument } from "@/lib/api";
+import {
+  ChatMessage,
+  streamChat,
+  uploadDocument,
+  type ApprovalPayload,
+  type ChatResult,
+} from "@/lib/api";
 import { MessageBubble } from "@/components/chat/MessageBubble";
 import { ChatInput } from "@/components/chat/ChatInput";
+import { ApprovalCard } from "@/components/chat/ApprovalCard";
 import { SidePanel } from "@/components/dashboard/SidePanel";
 
 export default function Home() {
@@ -12,53 +19,55 @@ export default function Home() {
   const [threadId] = useState(() => crypto.randomUUID());
   const [lastResult, setLastResult] = useState<any>(null);
   const [showPanel, setShowPanel] = useState(false);
+  const [approval, setApproval] = useState<ApprovalPayload | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const applyResult = useCallback((result: ChatResult) => {
+    setLastResult(result);
+    setMessages((prev) => {
+      const updated = [...prev];
+      updated[updated.length - 1] = {
+        role: "assistant",
+        content: result.response || "(no response)",
+      };
+      return updated;
+    });
+  }, []);
+
   const handleSend = useCallback(async (content: string) => {
     const userMsg: ChatMessage = { role: "user", content };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
     setIsLoading(true);
+    setApproval(null);
 
     const assistantMsg: ChatMessage = { role: "assistant", content: "" };
     setMessages((prev) => [...prev, assistantMsg]);
 
     try {
       let fullResponse = "";
-      let result: any = null;
       const gen = streamChat(updatedMessages, threadId);
 
-      while (true) {
-        const { value, done } = await gen.next();
-        if (done) {
-          result = value;
-          break;
+      for await (const ev of gen) {
+        if (ev.type === "token") {
+          fullResponse += ev.token;
+          setMessages((prev) => {
+            const updated = [...prev];
+            updated[updated.length - 1] = {
+              role: "assistant",
+              content: fullResponse,
+            };
+            return updated;
+          });
+        } else if (ev.type === "complete") {
+          applyResult(ev.result);
+        } else if (ev.type === "needs_approval") {
+          setApproval(ev.payload);
         }
-        fullResponse += value;
-        setMessages((prev) => {
-          const updated = [...prev];
-          updated[updated.length - 1] = {
-            role: "assistant",
-            content: fullResponse,
-          };
-          return updated;
-        });
-      }
-
-      setLastResult(result);
-      if (result?.response) {
-        setMessages((prev) => {
-          const updated = [...prev];
-          updated[updated.length - 1] = {
-            role: "assistant",
-            content: result.response,
-          };
-          return updated;
-        });
       }
     } catch (err) {
       setMessages((prev) => {
@@ -72,7 +81,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, threadId]);
+  }, [messages, threadId, applyResult]);
 
   const handleUpload = useCallback(async (file: File) => {
     try {
@@ -121,6 +130,15 @@ export default function Home() {
           {messages.map((msg, i) => (
             <MessageBubble key={i} message={msg} />
           ))}
+          {approval && (
+            <ApprovalCard
+              payload={approval}
+              onResolved={(result) => {
+                setApproval(null);
+                applyResult(result);
+              }}
+            />
+          )}
           <div ref={messagesEndRef} />
         </div>
 

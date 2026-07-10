@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
+from app.core.config import settings
 from app.models.state import AgentState
 
 
@@ -13,12 +14,12 @@ def route_after_validation(state: AgentState) -> Literal["planner", "error"]:
     return "planner"
 
 
-def route_after_planner(state: AgentState) -> Literal["retrieval", "response", "error"]:
+def route_after_planner(state: AgentState) -> Literal["tool_planner", "response", "error"]:
     if state.error:
         return "error"
     if not state.plan:
         return "response"
-    return "retrieval"
+    return "tool_planner"
 
 
 def route_after_retrieval(state: AgentState) -> Literal["evidence", "response"]:
@@ -27,23 +28,27 @@ def route_after_retrieval(state: AgentState) -> Literal["evidence", "response"]:
     return "evidence"
 
 
-def route_after_evidence(state: AgentState) -> Literal["reasoning", "step_counter", "response"]:
+def route_after_evidence(state: AgentState) -> Literal["reasoning", "refine", "error"]:
     if state.error:
-        return "response"
-    if state.evidence_coverage < 0.3 and state.step_count < state.max_steps:
-        return "step_counter"
-    if not state.evidence_contradictions and state.evidence_coverage >= 0.3:
-        return "reasoning"
-    return "response"
+        return "error"
+    if (
+        state.evidence_coverage < settings.evidence_threshold
+        and state.step_count < state.max_steps
+    ):
+        return "refine"
+    return "reasoning"
 
 
-def route_after_confidence(state: AgentState) -> Literal["risk", "step_counter"]:
-    if state.confidence_score < 30.0 and state.step_count < state.max_steps:
-        return "step_counter"
+def route_after_confidence(state: AgentState) -> Literal["risk", "refine"]:
+    if (
+        state.confidence_score < settings.confidence_retry_threshold
+        and state.step_count < state.max_steps
+    ):
+        return "refine"
     return "risk"
 
 
-def route_after_risk(state: AgentState) -> Literal["approval", "tools"]:
+def route_after_risk(state: AgentState) -> Literal["approval"]:
     return "approval"
 
 
@@ -53,17 +58,11 @@ def route_after_approval(state: AgentState) -> Literal["tools", "response"]:
     return "response"
 
 
-def route_after_tools(state: AgentState) -> Literal["response", "step_counter", "error"]:
+def route_after_tools(state: AgentState) -> Literal["response", "refine", "error"]:
     if state.error:
         return "error"
     if state.step_count >= state.max_steps:
         return "response"
     if any(not tc.success for tc in state.tool_calls):
-        return "step_counter"
+        return "refine"
     return "response"
-
-
-def circuit_breaker(state: AgentState) -> Literal["error", "__end__"]:
-    if state.step_count >= state.max_steps:
-        return "error"
-    return "__end__"

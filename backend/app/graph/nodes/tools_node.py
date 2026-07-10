@@ -15,6 +15,10 @@ def tools_node(state: AgentState) -> dict:
 
     executed = []
     for record in state.tool_calls:
+        if record.success:
+            executed.append(record)
+            continue
+
         try:
             args = json.loads(record.input) if isinstance(record.input, str) else record.input
         except json.JSONDecodeError:
@@ -23,4 +27,7 @@ def tools_node(state: AgentState) -> dict:
         result = execute_tool(record.tool, args)
         executed.append(result)
 
-    return {"tool_calls": executed}
+    return {
+        "tool_calls": executed,
+        "tool_results": [r.output or "" for r in executed],
+    }

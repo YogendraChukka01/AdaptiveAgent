@@ -7,7 +7,7 @@ A secure, explainable Agentic RAG platform using LangGraph + FastAPI + Ollama + 
 ## Critical Rules (DO NOT VIOLATE)
 
 1. **State must use Pydantic `BaseModel`** - NOT TypedDict. Pydantic provides runtime validation.
-2. **All list fields in AgentState must use `Annotated[list, add_messages]`** - prevents `InvalidUpdateError`.
+2. **Only the `messages` field uses `Annotated[list, add_messages]`** - all other list fields use plain `list[...]` (last-write-wins). `add_messages` *appends*, so applying it to `plan`/`retrieved_docs`/etc. would accumulate values across the retry loop and cause bugs.
 3. **Never mutate state directly** - Always return partial dict from nodes.
 4. **Every LangGraph node must return dict** - Keys match state field names.
 5. **Thread isolation required** - Every request needs unique `thread_id`.
@@ -16,11 +16,13 @@ A secure, explainable Agentic RAG platform using LangGraph + FastAPI + Ollama + 
 8. **Ollama model must support tool calling** - Only `qwen2.5:7b`, `llama3.1:8b`, `mistral:7b`.
 9. **ChromaDB queries must include `include=["documents","metadatas","distances"]`**.
 10. **BGE models must use `use_fp16=True`** to avoid OOM.
+11. **Retry loops must REFINE, not repeat** - When evidence_coverage/confidence is low (or a tool fails), route to `refine` (not back to validation/planning). `refine` rewrites/broadens the query (LLM with deterministic fallback) and widens retrieval `k`; it must keep incrementing `step_count` so the `max_steps` circuit breaker still holds. This implements the CRAG/Self-RAG "repair" step.
 
 ## Architecture
 
 ```
-User → Next.js → FastAPI → LangGraph (validator→planner→retrieval→evidence→reasoning→confidence→risk→approval→tools→response) → ChromaDB/BG
+User → Next.js → FastAPI → LangGraph (validator→planner→tool_planner→retrieval→evidence→reasoning→confidence→risk→approval→tools→response) → ChromaDB/BG
+Retry loop: evidence/confidence/tool-failure → refine → retrieval (rewrites query + widens k, bounded by max_steps)
 ```
 
 ## File Map

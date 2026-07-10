@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -7,11 +8,27 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import audit, chat, health, upload
 from app.core.config import settings
+from app.core.database import init_db
 from app.core.deps import init_graph, shutdown_graph
+
+
+def _configure_tracing() -> None:
+    """Enable LangSmith tracing when an API key is configured.
+
+    Gated entirely on settings.langsmith_api_key so local/dev runs are
+    unaffected. Env must be set before LangChain is first used.
+    """
+    if not settings.langsmith_api_key:
+        return
+    os.environ["LANGCHAIN_TRACING_V2"] = "true"
+    os.environ["LANGCHAIN_API_KEY"] = settings.langsmith_api_key
+    os.environ["LANGCHAIN_PROJECT"] = settings.langsmith_project
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _configure_tracing()
+    await init_db()
     await init_graph()
     yield
     await shutdown_graph()

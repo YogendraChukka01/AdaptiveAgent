@@ -62,6 +62,8 @@ class AgentState(BaseModel):
 
     step_count: int = 0
     max_steps: int = 10
+    retry_count: int = 0
+    refined_query: str = ""
     error: str | None = None
     start_time: float = 0.0
     end_time: float = 0.0

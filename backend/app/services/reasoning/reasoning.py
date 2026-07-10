@@ -9,8 +9,6 @@ def reason_with_evidence(
     query: str,
     documents: list[dict],
 ) -> tuple[str, list[str]]:
-    llm = get_llm(temperature=0.2, max_tokens=2048)
-
     context = "\n\n".join(
         f"[Source: {d.get('source', 'unknown')}]\n{d.get('content', '')}"
         for d in documents
@@ -18,8 +16,8 @@ def reason_with_evidence(
 
     messages = [
         SystemMessage(content=(
-            "You are a safe, explainable AI assistant. Reason step-by-step using ONLY the provided evidence.\n"
-            "If evidence is insufficient, say so. Never fabricate information.\n"
+            "You are a safe, explainable AI assistant. Reason step-by-step using ONLY the\n"
+            "provided evidence. If evidence is insufficient, say so. Never fabricate information.\n"
             "Format your response as:\n"
             "REASONING: <step-by-step chain of thought>\n"
             "ANSWER: <final answer>"
@@ -27,8 +25,15 @@ def reason_with_evidence(
         HumanMessage(content=f"Query: {query}\n\nEvidence:\n{context}"),
     ]
 
-    response = llm.invoke(messages)
-    content = response.content
+    try:
+        response = get_llm(temperature=0.2, max_tokens=2048).invoke(messages)
+        content = response.content
+    except Exception as e:
+        return (
+            "I was unable to generate a response because the reasoning model is "
+            "currently unavailable. Please try again later.",
+            [f"[error] reasoning model failed: {e}"],
+        )
 
     reasoning_parts: list[str] = []
     answer = content
