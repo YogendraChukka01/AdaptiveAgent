@@ -13,10 +13,18 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { ApprovalCard } from "@/components/chat/ApprovalCard";
 import { SidePanel } from "@/components/dashboard/SidePanel";
 
+const generateId = (): string => {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return Math.random().toString(36).slice(2) + Date.now().toString(36);
+  }
+};
+
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [threadId] = useState(() => crypto.randomUUID());
+  const [threadId] = useState(generateId);
   const [lastResult, setLastResult] = useState<ChatResult | null>(null);
   const [showPanel, setShowPanel] = useState(false);
   const [approval, setApproval] = useState<ApprovalPayload | null>(null);
@@ -114,7 +122,7 @@ export default function Home() {
     setIsLoading(true);
     try {
       const result = await uploadDocument(file, threadId, controller.signal);
-      const msg = `📄 Uploaded **${result.filename}** (${result.chunks} chunks indexed)`;
+      const msg = `Uploaded ${result.filename} (${result.chunks} chunks indexed)`;
       setMessages((prev) => [
         ...prev,
         { id: crypto.randomUUID(), role: "user", content: `Uploaded: ${result.filename}` },
@@ -149,7 +157,12 @@ export default function Home() {
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+        <div
+          role="log"
+          aria-live="polite"
+          aria-label="Chat messages"
+          className="flex-1 overflow-y-auto px-4 py-6 space-y-4"
+        >
           {messages.length === 0 && (
             <div className="flex items-center justify-center h-full text-[var(--text-secondary)]">
               <div className="text-center space-y-2">

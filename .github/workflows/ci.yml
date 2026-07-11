@@ -9,11 +9,16 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: backend/pyproject.toml
       - name: Install dependencies
         run: pip install -e "backend[dev]"
       - name: Lint
@@ -22,9 +27,14 @@ jobs:
       - name: Format check
         working-directory: backend
         run: ruff format --check app/ tests/
+      - name: Type check
+        working-directory: backend
+        run: mypy app/ --ignore-missing-imports
       - name: Test
         working-directory: backend
-        run: python -m pytest tests/ -v
+        run: python -m pytest tests/ -v --cov=app --cov-report=xml
+      - name: Security scan
+        run: pip install pip-audit && pip-audit
 
   frontend:
     runs-on: ubuntu-latest
@@ -44,3 +54,12 @@ jobs:
       - name: Lint
         working-directory: frontend
         run: npx next lint
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: docker build -t adaptiveagent-backend ./backend
+      - name: Build frontend image
+        run: docker build -t adaptiveagent-frontend ./frontend

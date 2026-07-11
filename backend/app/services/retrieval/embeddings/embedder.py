@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from collections import OrderedDict
 from functools import lru_cache
 
@@ -7,8 +8,6 @@ import torch
 from FlagEmbedding import FlagModel
 
 from app.core.config import settings
-
-_embedder: object | None = None
 
 
 @lru_cache(maxsize=1)
@@ -19,7 +18,6 @@ def get_embedder() -> object:
     - provider "openai" -> any OpenAI-compatible embeddings API
       (Ollama /v1/embeddings, vLLM, Together, OpenAI, ...).
     """
-    global _embedder
     provider = settings.embedding_provider.lower()
 
     if provider == "openai":
@@ -33,36 +31,37 @@ def get_embedder() -> object:
             base_url=settings.embedding_api_base,
         )
 
-    if _embedder is None:
-        _embedder = FlagModel(
-            settings.embedding_model,
-            query_instruction_for_retrieval=(
-                "Represent this sentence for searching relevant passages:"
-            ),
-            use_fp16=True,
-            devices=["cpu"] if not torch.cuda.is_available() else ["cuda:0"],
-        )
-    return _embedder
+    return FlagModel(
+        settings.embedding_model,
+        query_instruction_for_retrieval=(
+            "Represent this sentence for searching relevant passages:"
+        ),
+        use_fp16=True,
+        devices=["cpu"] if not torch.cuda.is_available() else ["cuda:0"],
+    )
 
 
 _EMBED_CACHE: OrderedDict[tuple[str, ...], list[float]] = OrderedDict()
 _EMBED_CACHE_MAX = 2048
+_EMBED_CACHE_LOCK = threading.Lock()
 
 
 def _cache_get(texts: list[str]) -> list[list[float]] | None:
     key = tuple(texts)
-    if key in _EMBED_CACHE:
-        _EMBED_CACHE.move_to_end(key)
-        return _EMBED_CACHE[key]
+    with _EMBED_CACHE_LOCK:
+        if key in _EMBED_CACHE:
+            _EMBED_CACHE.move_to_end(key)
+            return _EMBED_CACHE[key]
     return None
 
 
 def _cache_put(texts: list[str], vectors: list[list[float]]) -> None:
     key = tuple(texts)
-    _EMBED_CACHE[key] = vectors
-    _EMBED_CACHE.move_to_end(key)
-    while len(_EMBED_CACHE) > _EMBED_CACHE_MAX:
-        _EMBED_CACHE.popitem(last=False)
+    with _EMBED_CACHE_LOCK:
+        _EMBED_CACHE[key] = vectors
+        _EMBED_CACHE.move_to_end(key)
+        while len(_EMBED_CACHE) > _EMBED_CACHE_MAX:
+            _EMBED_CACHE.popitem(last=False)
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:

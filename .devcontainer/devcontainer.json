@@ -9,13 +9,14 @@
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
   "forwardPorts": [3000, 8000, 11434, 5432],
-  "postCreateCommand": "pip install -e backend/ && cd frontend && npm install",
+  "postCreateCommand": "pip install -e \"backend[dev]\" && cd frontend && npm install",
   "postStartCommand": "ollama serve & sleep 3 && ollama pull qwen2.5:7b || true",
   "customizations": {
     "vscode": {
       "extensions": [
         "ms-python.python",
         "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode"
       ],
@@ -23,7 +24,7 @@
         "python.defaultInterpreterPath": "/usr/local/bin/python",
         "python.testing.pytestEnabled": true,
         "[python]": {
-          "editor.defaultFormatter": "ms-python.black-formatter",
+          "editor.defaultFormatter": "charliermarsh.ruff",
           "editor.formatOnSave": true
         }
       }

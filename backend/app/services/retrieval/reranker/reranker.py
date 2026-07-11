@@ -1,24 +1,19 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any
 
 from FlagEmbedding import FlagReranker
 
 from app.core.config import settings
 
-_reranker: Any | None = None
-
 
 @lru_cache(maxsize=1)
-def get_reranker() -> Any:
+def get_reranker():
     """Build the configured reranker backend.
 
     - provider "bge" -> FlagEmbedding BGE reranker (default).
     - provider "rest" -> any Jina/Cohere/Voyage-shaped rerank API
-      (set ``reranker_api_base``). Expects a JSON body
-      ``{model, query, documents, top_n}`` and a response
-      ``{results: [{index, relevance_score}]}``.
+      (set ``reranker_api_base``).
     """
     provider = settings.reranker_provider.lower()
 
@@ -31,13 +26,10 @@ def get_reranker() -> Any:
             api_key=settings.reranker_api_key,
         )
 
-    global _reranker
-    if _reranker is None:
-        _reranker = FlagReranker(
-            settings.ollama_reranker_model,
-            use_fp16=True,
-        )
-    return _reranker
+    return FlagReranker(
+        settings.ollama_reranker_model,
+        use_fp16=True,
+    )
 
 
 def rerank(

@@ -39,7 +39,8 @@ export interface ApprovalPayload {
 export type StreamEvent =
   | { type: "token"; token: string }
   | { type: "complete"; result: ChatResult }
-  | { type: "needs_approval"; payload: ApprovalPayload };
+  | { type: "needs_approval"; payload: ApprovalPayload }
+  | { type: "error"; message: string };
 
 export async function* streamChat(
   messages: ChatMessage[],
@@ -57,7 +58,17 @@ export async function* streamChat(
     signal,
   });
 
-  if (!response.ok) throw new Error(`Chat failed: ${response.status}`);
+  if (!response.ok) {
+    const messages: Record<number, string> = {
+      400: "Invalid request",
+      401: "Authentication required",
+      403: "Access denied",
+      413: "File too large",
+      429: "Too many requests",
+      500: "Server error",
+    };
+    throw new Error(messages[response.status] || `Request failed (${response.status})`);
+  }
 
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("text/event-stream")) {
@@ -77,10 +88,10 @@ export async function* streamChat(
     try {
       const readPromise = reader.read();
       const timeoutPromise = new Promise<never>((_, reject) => {
-        timer = setTimeout(
-          () => reject(new Error("Stream timeout: no data received for 120s")),
-          timeoutMs,
-        );
+        timer = setTimeout(() => {
+          reader.cancel().catch(() => {});
+          reject(new Error("Stream timeout: no data received for 120s"));
+        }, timeoutMs);
       });
 
       const result = await Promise.race([readPromise, timeoutPromise]) as {
@@ -91,6 +102,9 @@ export async function* streamChat(
       if (done) {
         if (buffer.trim()) {
           for (const line of processBlock(buffer.trim())) {
+            if (line.type === "error") {
+              throw new Error(line.message);
+            }
             yield line;
           }
         }
@@ -103,6 +117,9 @@ export async function* streamChat(
 
       for (const block of blocks) {
         for (const evt of processBlock(block)) {
+          if (evt.type === "error") {
+            throw new Error(evt.message);
+          }
           yield evt;
         }
       }
@@ -167,15 +184,19 @@ function processBlock(block: string): StreamEvent[] {
     const errorData = extractSSEData(block, "error");
     if (errorData !== null) {
       const data = JSON.parse(errorData);
-      throw new Error(data.error || "Stream error from server");
+      events.push({ type: "error", message: data.error || "Stream error from server" });
+      return events;
+    }
+
+    const doneData = extractSSEData(block, "done");
+    if (doneData !== null) {
+      return events;
     }
   } catch (err) {
     if (err instanceof SyntaxError) {
       console.warn("Malformed SSE data, skipping block:", block.slice(0, 100));
-    } else if (err instanceof Error) {
-      console.warn("SSE processing error:", err.message);
     } else {
-      console.warn("Unknown SSE error:", String(err));
+      console.warn("SSE processing error:", err);
     }
   }
   return events;
@@ -193,13 +214,22 @@ export async function approveAction(
     signal,
   });
 
-  if (!response.ok) throw new Error(`Approval failed: ${response.status}`);
+  if (!response.ok) {
+    const messages: Record<number, string> = {
+      400: "Invalid request",
+      401: "Authentication required",
+      403: "Access denied",
+      404: "Thread not found",
+      500: "Server error",
+    };
+    throw new Error(messages[response.status] || `Request failed (${response.status})`);
+  }
   return response.json();
 }
 
 export async function uploadDocument(
   file: File,
-  threadId: string = "default",
+  threadId: string = "",
   signal?: AbortSignal,
 ): Promise<{ filename: string; chunks: number; total_characters: number }> {
   const formData = new FormData();
@@ -212,6 +242,14 @@ export async function uploadDocument(
     signal,
   });
 
-  if (!response.ok) throw new Error(`Upload failed: ${response.status}`);
+  if (!response.ok) {
+    const messages: Record<number, string> = {
+      400: "Invalid file or request",
+      401: "Authentication required",
+      413: "File too large",
+      500: "Server error",
+    };
+    throw new Error(messages[response.status] || `Upload failed (${response.status})`);
+  }
   return response.json();
 }

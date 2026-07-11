@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 class ChatRequest(BaseModel):
     messages: list[dict] = Field(min_length=1)
-    thread_id: str = "default"
+    thread_id: str = ""
     stream: bool = True
 
 
@@ -25,7 +25,7 @@ class ApprovalRequest(BaseModel):
 
 
 class UploadRequest(BaseModel):
-    thread_id: str = "default"
+    thread_id: str = ""
 
 
 class AuditEntry(BaseModel):

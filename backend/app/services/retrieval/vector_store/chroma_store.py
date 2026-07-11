@@ -74,15 +74,24 @@ class ChromaVectorStore(BaseVectorStore):
 
 # ── Legacy compatibility functions (used by upload.py, hybrid_search.py, health.py) ──
 
+_legacy_store: ChromaVectorStore | None = None
+
+
+def _get_legacy_store() -> ChromaVectorStore:
+    global _legacy_store
+    if _legacy_store is None:
+        _legacy_store = ChromaVectorStore(get_vector_store_config())
+    return _legacy_store
+
 
 @lru_cache(maxsize=1)
 def get_chroma_client() -> chromadb.PersistentClient:
-    store = ChromaVectorStore(get_vector_store_config())
-    return store._client
+    return _get_legacy_store()._client
 
 
 def get_or_create_collection(name: str = "safeagent_docs"):
-    store = ChromaVectorStore(get_vector_store_config())
+    store = _get_legacy_store()
+    store.config.collection_name = name
     return store.get_or_create_collection(name)
 
 
@@ -93,7 +102,7 @@ def add_documents(
     documents: list[str],
     metadatas: list[dict] | None = None,
 ) -> None:
-    store = ChromaVectorStore(get_vector_store_config())
+    store = _get_legacy_store()
     store.config.collection_name = collection_name
     store.add_documents(ids=ids, embeddings=embeddings, documents=documents, metadatas=metadatas)
 
@@ -104,7 +113,7 @@ def query_similar(
     n_results: int = 20,
     where: dict | None = None,
 ) -> dict:
-    store = ChromaVectorStore(get_vector_store_config())
+    store = _get_legacy_store()
     store.config.collection_name = collection_name
     return store.query_similar(query_embedding=query_embedding, n_results=n_results, where=where)
 

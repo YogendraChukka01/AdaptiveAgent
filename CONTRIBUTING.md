@@ -2,13 +2,22 @@
 
 Thank you for helping improve AdaptiveAgent.
 
+Please review our [Code of Conduct](CODE_OF_CONDUCT.md) before contributing.
+
 ## Development workflow
 
 1. Fork the repository and create a feature branch from main.
 2. Install backend and frontend dependencies.
-3. Make focused changes with clear commit messages.
-4. Run available tests and linters before opening a pull request.
-5. Submit a pull request with a concise summary and testing notes.
+3. Set up your environment.
+4. Make focused changes with clear commit messages.
+5. Run available tests and linters before opening a pull request.
+6. Submit a pull request with a concise summary and testing notes.
+
+## Prerequisites
+
+- Python 3.11+
+- Node.js 20+
+- Docker and Docker Compose (optional, for full stack)
 
 ## Backend setup
 
@@ -17,6 +26,7 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+cp .env.example .env   # edit with your settings
 python -m pytest tests -v
 ```
 
@@ -28,6 +38,21 @@ npm install
 npm run lint
 npm run typecheck
 ```
+
+## Pre-commit hooks
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+## Docker setup (optional)
+
+```bash
+docker compose -f infra/docker-compose.yml up -d
+```
+
+This starts PostgreSQL, Redis, Ollama, backend, and frontend.
 
 ## Coding standards
 

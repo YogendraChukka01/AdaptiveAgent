@@ -17,6 +17,11 @@ router = APIRouter(prefix="/upload", tags=["upload"])
 
 ALLOWED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx"}
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+MAX_CHUNKS = 10000
+
+
+class UnsupportedFileTypeError(Exception):
+    pass
 
 
 def _extract_text(content: bytes, filename: str) -> str:
@@ -31,9 +36,8 @@ def _extract_text(content: bytes, filename: str) -> str:
                 doc.close()
             return text
         except ImportError:
-            raise HTTPException(
-                status_code=400,
-                detail="PDF support requires PyMuPDF. Install with: pip install PyMuPDF",
+            raise UnsupportedFileTypeError(
+                "PDF support requires PyMuPDF. Install with: pip install PyMuPDF"
             )
     elif filename.endswith(".docx"):
         try:
@@ -42,9 +46,8 @@ def _extract_text(content: bytes, filename: str) -> str:
             doc = Document(_io.BytesIO(content))
             return "\n".join(p.text for p in doc.paragraphs)
         except ImportError:
-            raise HTTPException(
-                status_code=400,
-                detail="DOCX support requires python-docx. Install with: pip install python-docx",
+            raise UnsupportedFileTypeError(
+                "DOCX support requires python-docx. Install with: pip install python-docx"
             )
     else:
         return content.decode("utf-8", errors="ignore")
@@ -92,10 +95,21 @@ async def upload_document(
             detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024 * 1024)} MB",
         )
 
-    text = _extract_text(content, file.filename)
+    try:
+        text = _extract_text(content, file.filename)
+    except UnsupportedFileTypeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     chunks = _chunk_text(text)
 
+    if len(chunks) > MAX_CHUNKS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Document produces too many chunks ({len(chunks)}). Maximum: {MAX_CHUNKS}. Try splitting the file.",
+        )
+
     ids = [str(uuid.uuid4()) for _ in chunks]
+
     embeddings = await asyncio.to_thread(embed_texts, chunks)
     metadatas = [{"source": file.filename, "chunk": i} for i in range(len(chunks))]
 

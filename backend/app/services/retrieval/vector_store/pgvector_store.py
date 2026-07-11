@@ -53,7 +53,7 @@ class PGVectorStore(BaseVectorStore):
         docs = [
             Document(
                 page_content=doc,
-                metadata={(metadatas[i] if metadatas else {}) | {"_id": ids[i]}},
+                metadata=(metadatas[i] if metadatas else {}) | {"_id": ids[i]},
             )
             for i, doc in enumerate(documents)
         ]
@@ -80,9 +80,13 @@ class PGVectorStore(BaseVectorStore):
     def delete(self, ids: list[str]) -> None:
         self._get_collection().delete(ids=ids)
 
-    def count(self) -> None:
-        logger.warning("PGVector count() not implemented — returns None")
-        return None
+    def count(self) -> int:
+        collection = self._get_collection()
+        try:
+            return collection.count()
+        except Exception:
+            logger.warning("PGVector count() failed, returning 0")
+            return 0
 
     def get_or_create_collection(self, name: str | None = None) -> object:
         return self._get_collection()

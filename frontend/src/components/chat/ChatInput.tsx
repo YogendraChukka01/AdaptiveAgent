@@ -47,9 +47,9 @@ export function ChatInput({ onSend, onUpload, disabled }: Props) {
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setInput(e.target.value);
-      if (fileError) setFileError(null);
+      setFileError(null);
     },
-    [fileError],
+    [],
   );
 
   const handleFileChange = useCallback(
@@ -119,12 +119,14 @@ export function ChatInput({ onSend, onUpload, disabled }: Props) {
           placeholder="Ask a question..."
           aria-label="Ask a question"
           disabled={disabled}
+          maxLength={10000}
           className="flex-1 bg-[var(--bg-secondary)] rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[var(--accent)] disabled:opacity-50"
         />
 
         <button
           type="submit"
           disabled={disabled || !input.trim()}
+          aria-label="Send message"
           className="p-2 rounded-lg bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50"
         >
           <svg

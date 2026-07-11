@@ -1,19 +1,8 @@
+import { useEffect, useRef } from "react";
+import type { ChatResult } from "@/lib/api";
+
 interface Props {
-  result: {
-    response?: string;
-    confidence_score?: number;
-    risk_score?: number;
-    risk_level?: string;
-    reasoning_path?: string[];
-    eval_score?: number;
-    eval_details?: string;
-    citations?: Array<{
-      source: string;
-      chunk: string;
-      relevance_score: number;
-    }>;
-    step_count?: number;
-  };
+  result: Partial<ChatResult>;
   onClose: () => void;
 }
 
@@ -36,6 +25,17 @@ function ScoreBar({ label, value, color }: { label: string; value: number; color
 }
 
 export function SidePanel({ result, onClose }: Props) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    panelRef.current?.focus();
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [onClose]);
+
   const riskColor =
     result.risk_level === "high"
       ? "var(--danger)"
@@ -44,7 +44,13 @@ export function SidePanel({ result, onClose }: Props) {
         : "var(--success)";
 
   return (
-    <div className="w-96 border-l border-[var(--border)] bg-[var(--bg-secondary)] overflow-y-auto">
+    <div
+      ref={panelRef}
+      tabIndex={-1}
+      role="complementary"
+      aria-label="Response details"
+      className="w-96 border-l border-[var(--border)] bg-[var(--bg-secondary)] overflow-y-auto outline-none"
+    >
       <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
         <h2 className="text-sm font-semibold">Details</h2>
         <button

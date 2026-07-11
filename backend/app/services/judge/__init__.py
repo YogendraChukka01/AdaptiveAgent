@@ -185,14 +185,14 @@ def verify_claims(context: str, claims: list[str]) -> list[dict]:
         return [{"claim": c, "verdict": 1} for c in claims]
 
 
-def score_relevancy(query: str, response: str) -> float:
+def score_relevancy(query: str, response: str) -> float | None:
     """LLM-as-judge answer relevancy score in [0, 1].
 
     Measures how well the response addresses the user's query.
     Returns None on failure so caller can skip this metric.
     """
     if not settings.eval_judge_model:
-        return 0.0
+        return None
     try:
         llm = get_llm(temperature=0.0, max_tokens=32)
         user_msg = HumanMessage(
@@ -206,7 +206,7 @@ def score_relevancy(query: str, response: str) -> float:
         resp = llm.invoke([_RELEVANCY_SYSTEM, user_msg])  # type: ignore[union-attr]
         text = resp.content.strip()  # type: ignore[union-attr]
         score = _parse_score(text)
-        return score if score is not None else 0.0
+        return score if score is not None else None
     except Exception:
         logger.debug("Relevancy judge failed")
-        return 0.0
+        return None

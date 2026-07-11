@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   approveAction,
   type ApprovalPayload,
@@ -21,7 +21,7 @@ export function ApprovalCard({ payload, onResolved }: Props) {
     };
   }, []);
 
-  const handle = async (action: "approve" | "reject") => {
+  const handle = useCallback(async (action: "approve" | "reject") => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -36,7 +36,7 @@ export function ApprovalCard({ payload, onResolved }: Props) {
       setError(e instanceof Error ? e.message : "Approval failed");
       setPending(false);
     }
-  };
+  }, [payload.thread_id, onResolved]);
 
   return (
     <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 space-y-3">
@@ -57,8 +57,8 @@ export function ApprovalCard({ payload, onResolved }: Props) {
         {payload.pending_tools && payload.pending_tools.length > 0 && (
           <p>
             Tools awaiting review:{" "}
-            {payload.pending_tools.map((t) => (
-              <code key={t} className="mr-1 rounded bg-black/30 px-1">
+            {payload.pending_tools.map((t, i) => (
+              <code key={`${t}-${i}`} className="mr-1 rounded bg-black/30 px-1">
                 {t}
               </code>
             ))}
@@ -71,6 +71,7 @@ export function ApprovalCard({ payload, onResolved }: Props) {
       {error && <p className="text-sm text-red-400">{error}</p>}
       <div className="flex gap-2">
         <button
+          type="button"
           onClick={() => handle("approve")}
           disabled={pending}
           className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
@@ -78,6 +79,7 @@ export function ApprovalCard({ payload, onResolved }: Props) {
           Approve
         </button>
         <button
+          type="button"
           onClick={() => handle("reject")}
           disabled={pending}
           className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"

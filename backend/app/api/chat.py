@@ -179,7 +179,7 @@ async def _stream_events(
                 for c in values.get("citations", [])
             ],
             "execution_time_ms": (
-                int((time.time() - state.start_time) * 1000) if state.start_time else 0
+                int((time.time() - state.start_time) * 1000) if state.start_time is not None else 0
             ),
             "step_count": values.get("step_count", 0),
         }
@@ -243,7 +243,11 @@ async def chat(
             },
         )
 
-    result = await graph.ainvoke(state, config=config)
+    try:
+        result = await graph.ainvoke(state, config=config)
+    except Exception:
+        logger.exception("Graph execution failed for thread %s", thread_id)
+        raise HTTPException(status_code=500, detail="Internal error during processing")
     values = _unwrap(result)
 
     if isinstance(result, dict) and result.get("__interrupt__"):
@@ -280,7 +284,7 @@ async def chat(
                 for c in values.get("citations", [])
             ],
             "execution_time_ms": (
-                int((time.time() - state.start_time) * 1000) if state.start_time else 0
+                int((time.time() - state.start_time) * 1000) if state.start_time is not None else 0
             ),
             "step_count": values.get("step_count", 0),
         }
@@ -297,14 +301,22 @@ async def approve_action(
 ):
     config = {"configurable": {"thread_id": request.thread_id}}
 
-    await graph.ainvoke(
-        Command(resume={"approved": request.action == "approve"}),
-        config=config,
-    )
+    try:
+        await graph.ainvoke(
+            Command(resume={"approved": request.action == "approve"}),
+            config=config,
+        )
+    except Exception:
+        logger.exception("Approval resume failed for thread %s", request.thread_id)
+        raise HTTPException(status_code=500, detail="Failed to resume approval")
 
     await clear_pending_approval(request.thread_id)
 
-    snapshot = await graph.aget_state(config)
+    try:
+        snapshot = await graph.aget_state(config)
+    except Exception:
+        logger.exception("Failed to get state for thread %s", request.thread_id)
+        raise HTTPException(status_code=404, detail="Thread not found or expired")
     values = snapshot.values
 
     return _build_result(values, request.thread_id)
@@ -316,4 +328,8 @@ async def list_pending_approvals(
 ):
     from app.core.threads import list_pending_approvals as _list
 
-    return await _list(include_expired=True)
+    results = await _list(include_expired=True)
+    return [
+        {k: v for k, v in entry.items() if k not in ("age_seconds", "expired")}
+        for entry in results
+    ]

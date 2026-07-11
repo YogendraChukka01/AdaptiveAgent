@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.services.llm import get_llm
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """You are a planner for a safe RAG agent. Produce a sequential plan of steps.
 Available actions:
@@ -32,7 +35,7 @@ def create_plan(query: str) -> list[str]:
                 return plan[:5]
         except (json.JSONDecodeError, ValueError, TypeError):
             pass
-    except (ImportError, ModuleNotFoundError, RuntimeError, ValueError, TypeError):
-        pass
+    except (ImportError, ModuleNotFoundError, RuntimeError, ValueError, TypeError) as e:
+        logger.warning("LLM planning failed, using default plan: %s", e)
 
     return ["retrieve", "analyze", "verify", "respond"]

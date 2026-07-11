@@ -14,13 +14,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["health"])
 
 _health_client: httpx.AsyncClient | None = None
+_health_client_lock = asyncio.Lock()
 
 
-def _get_health_client() -> httpx.AsyncClient:
+async def _get_health_client() -> httpx.AsyncClient:
     global _health_client
-    if _health_client is None or _health_client.is_closed:
-        _health_client = httpx.AsyncClient(timeout=2.0)
-    return _health_client
+    async with _health_client_lock:
+        if _health_client is None or _health_client.is_closed:
+            _health_client = httpx.AsyncClient(timeout=2.0)
+        return _health_client
 
 
 async def close_health_client() -> None:

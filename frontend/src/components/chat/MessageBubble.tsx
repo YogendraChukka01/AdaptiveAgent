@@ -1,6 +1,7 @@
+import React from "react";
 import { ChatMessage } from "@/lib/api";
 
-export function MessageBubble({ message }: { message: ChatMessage }) {
+export const MessageBubble = React.memo(function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
 
   return (
@@ -16,4 +17,4 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
       </div>
     </div>
   );
-}
+});

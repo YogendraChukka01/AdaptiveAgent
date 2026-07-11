@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from langchain_core.language_models import BaseChatModel
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -30,7 +32,7 @@ def _build_langchain_llm(
     base_url: str | None = None,
     temperature: float = 0.0,
     max_tokens: int | None = None,
-) -> object:
+) -> BaseChatModel:
     """Build a LangChain chat model for a given provider."""
     if provider == "ollama":
         from langchain_ollama import ChatOllama
@@ -105,7 +107,7 @@ def _litellm_model_id(provider: str, model: str, base_url: str | None = None) ->
 def _build_router_llm(
     temperature: float = 0.0,
     max_tokens: int | None = None,
-) -> object:
+) -> BaseChatModel:
     """Build a ChatLiteLLMRouter with automatic cloud fallback.
 
     Uses litellm.Router for production-grade fallback handling:
@@ -194,7 +196,7 @@ def _build_router_llm(
 def get_llm(
     temperature: float = 0.0,
     max_tokens: int | None = None,
-) -> object:
+) -> BaseChatModel:
     """Return a LangChain chat model with automatic cloud fallback.
 
     When ``llm_fallback_model`` is configured, uses litellm.Router for

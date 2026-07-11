@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
+from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 from pydantic import BaseModel, Field
 
@@ -23,7 +24,7 @@ class ToolCallRecord(BaseModel):
 
 
 class AgentState(BaseModel):
-    messages: Annotated[list, add_messages] = Field(default_factory=list)
+    messages: Annotated[list[BaseMessage], add_messages] = Field(default_factory=list)
     query: str = ""
     sanitized_query: str = ""
     is_safe: bool = False
@@ -65,4 +66,4 @@ class AgentState(BaseModel):
     retry_count: int = 0
     refined_query: str = ""
     error: str | None = None
-    start_time: float = 0.0
+    start_time: float | None = None

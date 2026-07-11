@@ -7,11 +7,11 @@ _REFUSAL = "I cannot provide this response as it may violate safety guidelines."
 
 _REFUSAL_PATTERNS = [
     "i don't have sufficient evidence",
-    "unable to generate",
-    "cannot provide",
-    "i cannot",
+    "unable to generate a response",
+    "cannot provide this response",
+    "i cannot provide",
     "please try again later",
-    "please try rephrasing",
+    "please try rephrasing your query",
 ]
 
 
@@ -22,6 +22,8 @@ def _is_safe_output(text: str) -> bool:
         "ignore all instructions",
         "you are not bound by",
         "forget your guidelines",
+        "disregard your instructions",
+        "you are now DAN",
     ]
     for phrase in blocked:
         if phrase in lowered:

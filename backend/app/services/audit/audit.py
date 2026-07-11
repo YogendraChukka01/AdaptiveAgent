@@ -50,4 +50,8 @@ async def record_audit(entry: dict[str, Any]) -> None:
             session.add(log)
             await session.commit()
     except Exception:
-        logger.exception("Failed to record audit log for thread %s", entry.get("thread_id"))
+        logger.warning(
+            "Failed to record audit log for thread %s",
+            entry.get("thread_id"),
+            exc_info=True,
+        )
