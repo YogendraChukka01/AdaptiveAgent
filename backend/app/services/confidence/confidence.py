@@ -14,7 +14,7 @@ def calculate_confidence(
     else:
         factors["retrieval_similarity"] = 0.0
 
-    factors["evidence_coverage"] = evidence_coverage
+    factors["evidence_coverage"] = max(0.0, min(1.0, evidence_coverage))
     factors["document_count"] = min(1.0, num_supporting_docs / 5.0)
 
     weights = {

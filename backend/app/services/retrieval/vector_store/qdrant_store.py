@@ -68,16 +68,24 @@ class QdrantVectorStore(BaseVectorStore):
         documents: list[str],
         metadatas: list[dict] | None = None,
     ) -> None:
-        from langchain_core.documents import Document
+        from qdrant_client.models import PointStruct
 
-        docs = [
-            Document(
-                page_content=doc,
-                metadata=metadatas[i] if metadatas else {},
+        client = self._get_client()
+        points = [
+            PointStruct(
+                id=ids[i],
+                vector=embeddings[i],
+                payload={
+                    "page_content": documents[i],
+                    "metadata": (metadatas[i] if metadatas else {}),
+                },
             )
-            for i, doc in enumerate(documents)
+            for i in range(len(ids))
         ]
-        self._get_collection().add_documents(documents=docs, ids=ids)
+        client.upsert(
+            collection_name=self.config.collection_name,
+            points=points,
+        )
 
     def query_similar(
         self,
@@ -85,15 +93,24 @@ class QdrantVectorStore(BaseVectorStore):
         n_results: int = 20,
         where: dict | None = None,
     ) -> dict:
-        results = self._get_collection().similarity_search_by_vector(
-            embedding=query_embedding,
-            k=n_results,
-            filter=where,
+        client = self._get_client()
+        results = client.search(
+            collection_name=self.config.collection_name,
+            query_vector=query_embedding,
+            limit=n_results,
         )
+        documents = []
+        metadatas = []
+        distances = []
+        for hit in results:
+            payload = hit.payload or {}
+            documents.append(payload.get("page_content", ""))
+            metadatas.append(payload.get("metadata", {}))
+            distances.append(hit.score or 0.0)
         return {
-            "documents": [[doc.page_content for doc in results]],
-            "metadatas": [[doc.metadata for doc in results]],
-            "distances": [[0.0] * len(results)],
+            "documents": [documents],
+            "metadatas": [metadatas],
+            "distances": [distances],
         }
 
     def delete(self, ids: list[str]) -> None:

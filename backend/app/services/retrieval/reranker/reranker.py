@@ -21,7 +21,7 @@ def get_reranker():
         from app.services.retrieval.reranker.rest_reranker import RestReranker
 
         return RestReranker(
-            model=settings.ollama_reranker_model,
+            model=settings.reranker_model or "rerank-v2",
             api_base=settings.reranker_api_base,
             api_key=settings.reranker_api_key,
         )

@@ -39,7 +39,7 @@ async def health_check():
     db_ok = False
 
     try:
-        client = _get_health_client()
+        client = await _get_health_client()
         r = await client.get(f"{settings.ollama_base_url}/api/tags")
         ollama_ok = r.status_code == 200
     except Exception as e:

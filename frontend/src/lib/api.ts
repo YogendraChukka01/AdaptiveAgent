@@ -130,11 +130,22 @@ export async function* streamChat(
 }
 
 function extractSSEData(block: string, eventPrefix: string): string | null {
-  const marker = `event: ${eventPrefix}\ndata: `;
-  const trimmed = block.trimStart();
-  const idx = trimmed.indexOf(marker);
-  if (idx !== 0) return null;
-  return trimmed.slice(marker.length);
+  const lines = block.split("\n");
+  let eventType = "";
+  let dataLines: string[] = [];
+
+  for (const line of lines) {
+    if (line.startsWith("event: ")) {
+      eventType = line.slice(7).trim();
+    } else if (line.startsWith("data: ")) {
+      dataLines.push(line.slice(6));
+    } else if (line.startsWith("id:") || line.startsWith("retry:") || line.startsWith(":")) {
+      continue;
+    }
+  }
+
+  if (eventType !== eventPrefix || dataLines.length === 0) return null;
+  return dataLines.join("\n");
 }
 
 function processBlock(block: string): StreamEvent[] {
@@ -173,8 +184,20 @@ function processBlock(block: string): StreamEvent[] {
     const approvalData = extractSSEData(block, "needs_approval");
     if (approvalData !== null) {
       const data = JSON.parse(approvalData);
-      if (data && typeof data.thread_id === "string") {
-        events.push({ type: "needs_approval", payload: data as ApprovalPayload });
+      if (data && typeof data.thread_id === "string" && data.needs_approval === true) {
+        events.push({
+          type: "needs_approval",
+          payload: {
+            needs_approval: true,
+            thread_id: data.thread_id,
+            risk_level: data.risk_level ?? null,
+            risk_score: data.risk_score ?? null,
+            approval_status: data.approval_status ?? null,
+            reason: data.reason ?? null,
+            pending_tools: data.pending_tools ?? [],
+            triggering_factors: data.triggering_factors ?? [],
+          },
+        });
       } else {
         console.warn("Invalid approval payload, skipping:", approvalData.slice(0, 100));
       }

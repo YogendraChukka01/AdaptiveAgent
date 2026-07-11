@@ -3,8 +3,13 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
+class ChatMessage(BaseModel):
+    role: str = Field(pattern="^(user|assistant|system)$")
+    content: str
+
+
 class ChatRequest(BaseModel):
-    messages: list[dict] = Field(min_length=1)
+    messages: list[ChatMessage] = Field(min_length=1)
     thread_id: str = ""
     stream: bool = True
 

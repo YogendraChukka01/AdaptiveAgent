@@ -91,7 +91,6 @@ def get_chroma_client() -> chromadb.PersistentClient:
 
 def get_or_create_collection(name: str = "safeagent_docs"):
     store = _get_legacy_store()
-    store.config.collection_name = name
     return store.get_or_create_collection(name)
 
 
@@ -103,8 +102,13 @@ def add_documents(
     metadatas: list[dict] | None = None,
 ) -> None:
     store = _get_legacy_store()
-    store.config.collection_name = collection_name
-    store.add_documents(ids=ids, embeddings=embeddings, documents=documents, metadatas=metadatas)
+    collection = store.get_or_create_collection(collection_name)
+    collection.add(
+        ids=ids,
+        embeddings=embeddings,
+        documents=documents,
+        metadatas=metadatas or [{} for _ in range(len(ids))],
+    )
 
 
 def query_similar(
@@ -114,8 +118,15 @@ def query_similar(
     where: dict | None = None,
 ) -> dict:
     store = _get_legacy_store()
-    store.config.collection_name = collection_name
-    return store.query_similar(query_embedding=query_embedding, n_results=n_results, where=where)
+    collection = store.get_or_create_collection(collection_name)
+    kwargs: dict = {
+        "query_embeddings": [query_embedding],
+        "n_results": n_results,
+        "include": ["documents", "metadatas", "distances"],
+    }
+    if where is not None:
+        kwargs["where"] = where
+    return collection.query(**kwargs)
 
 
 def get_vector_store_config() -> VectorStoreConfig:

@@ -98,11 +98,13 @@ class MemoryDistiller:
         keys = []
         async for key in r.scan_iter(match="conversation:*", count=100):
             keys.append(key)
+            if len(keys) >= 50:
+                break
         if not keys:
             return
 
         total_facts = 0
-        for key in keys[:50]:
+        for key in keys:
             thread_id = key.split(":", 1)[1] if ":" in key else key
             entries = await r.lrange(key, -settings.memory_distill_max_messages, -1)
             if len(entries) < 4:
@@ -150,11 +152,17 @@ class MemoryDistiller:
                     )
                     return llm.invoke([HumanMessage(content=prompt)])  # type: ignore[union-attr]
 
-                response = await asyncio.to_thread(_call_llm)
+                response = await asyncio.wait_for(
+                    asyncio.to_thread(_call_llm), timeout=120
+                )
                 content = response.content.strip()  # type: ignore[union-attr]
                 content = content.strip("`").strip()
                 if content.startswith("json\n"):
                     content = content[5:]
+                import re
+                match = re.search(r'\[.*\]', content, re.DOTALL)
+                if match:
+                    return json.loads(match.group())
                 return json.loads(content)
             except Exception:
                 logger.debug("Fact extraction failed")
@@ -166,7 +174,8 @@ class MemoryDistiller:
             return
         now = datetime.now(timezone.utc).isoformat()
 
-        def _upsert_all():
+        def _delete_and_upsert():
+            self._collection.delete(where={"thread_id": thread_id})
             for i, fact in enumerate(facts):
                 self._collection.upsert(
                     documents=[fact],
@@ -180,7 +189,7 @@ class MemoryDistiller:
                     ],
                 )
 
-        await asyncio.to_thread(_upsert_all)
+        await asyncio.to_thread(_delete_and_upsert)
 
     async def retrieve_facts(self, thread_id: str, query: str, k: int = 5) -> list[str]:
         """Retrieve relevant user facts for a new session."""

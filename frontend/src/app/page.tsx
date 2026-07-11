@@ -65,8 +65,8 @@ export default function Home() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", content };
-    const assistantMsg: ChatMessage = { id: crypto.randomUUID(), role: "assistant", content: "" };
+    const userMsg: ChatMessage = { id: generateId(), role: "user", content };
+    const assistantMsg: ChatMessage = { id: generateId(), role: "assistant", content: "" };
 
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setIsLoading(true);
@@ -125,15 +125,15 @@ export default function Home() {
       const msg = `Uploaded ${result.filename} (${result.chunks} chunks indexed)`;
       setMessages((prev) => [
         ...prev,
-        { id: crypto.randomUUID(), role: "user", content: `Uploaded: ${result.filename}` },
-        { id: crypto.randomUUID(), role: "assistant", content: msg },
+        { id: generateId(), role: "user", content: `Uploaded: ${result.filename}` },
+        { id: generateId(), role: "assistant", content: msg },
       ]);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       setMessages((prev) => [
         ...prev,
         {
-          id: crypto.randomUUID(),
+          id: generateId(),
           role: "assistant",
           content: `Upload failed: ${err instanceof Error ? err.message : "Unknown error"}`,
         },

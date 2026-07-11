@@ -34,8 +34,8 @@ def _get_engine():
                     logger.warning(
                         "SunglassesEngine unavailable; prompt-injection scanning disabled"
                     )
-                    return None
-    return _engine
+                    _engine = False
+    return _engine if _engine is not False else None
 
 
 PII_PATTERNS: list[re.Pattern] = [
@@ -103,7 +103,7 @@ def validate_query(query: str) -> ValidationResult:
     is_safe = len(issues) == 0
 
     severity_map = {"critical": 0.95, "high": 0.75, "medium": 0.50, "low": 0.25}
-    confidence = 1.0 - severity_map.get(severity, 0.0) if severity else 1.0
+    confidence = 1.0 - severity_map.get(severity, 0.75) if severity else 1.0
     return ValidationResult(
         is_safe=is_safe,
         issues=issues,

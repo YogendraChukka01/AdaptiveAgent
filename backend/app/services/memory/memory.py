@@ -19,6 +19,11 @@ class MemoryManager:
         async with self._lock:
             if self._redis is None:
                 self._redis = redis.from_url(settings.redis_url, decode_responses=True)
+            else:
+                try:
+                    await self._redis.ping()
+                except (redis.ConnectionError, redis.TimeoutError, OSError):
+                    self._redis = redis.from_url(settings.redis_url, decode_responses=True)
             return self._redis
 
     async def get_redis(self) -> redis.Redis:
@@ -46,6 +51,7 @@ class MemoryManager:
         }
         key = f"conversation:{thread_id}"
         await r.rpush(key, json.dumps(entry))
+        await r.ltrim(key, -200, -1)
         await r.expire(key, ttl)
 
     async def get_conversation(self, thread_id: str, limit: int = 50) -> list[dict[str, Any]]:

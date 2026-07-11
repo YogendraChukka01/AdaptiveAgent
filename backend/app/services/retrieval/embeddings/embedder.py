@@ -65,6 +65,8 @@ def _cache_put(texts: list[str], vectors: list[list[float]]) -> None:
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
+    if not texts:
+        return []
     cached = _cache_get(texts)
     if cached is not None:
         return cached

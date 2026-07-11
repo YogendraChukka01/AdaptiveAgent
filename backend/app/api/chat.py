@@ -19,7 +19,7 @@ from app.core.threads import (
     clear_pending_approval,
     track_pending_approval,
 )
-from app.models.schemas import ApprovalRequest, ChatRequest
+from app.models.schemas import ApprovalRequest, ChatRequest, ChatMessage
 from app.models.state import AgentState
 from app.services.audit.audit import record_audit
 from app.services.memory.memory import memory_manager
@@ -202,12 +202,7 @@ async def chat(
         raise HTTPException(status_code=400, detail="messages must not be empty")
 
     last_msg = request.messages[-1]
-    if "content" not in last_msg or not isinstance(last_msg["content"], str):
-        raise HTTPException(
-            status_code=400,
-            detail="Each message must have a string 'content' field",
-        )
-    last_message = last_msg["content"]
+    last_message = last_msg.content
 
     config = {
         "configurable": {"thread_id": thread_id},
@@ -299,7 +294,10 @@ async def approve_action(
     graph: CompiledStateGraph = Depends(get_graph),
     _auth: str = Depends(require_api_key),
 ):
-    config = {"configurable": {"thread_id": request.thread_id}}
+    config = {
+        "configurable": {"thread_id": request.thread_id},
+        "recursion_limit": _recursion_limit(),
+    }
 
     try:
         await graph.ainvoke(

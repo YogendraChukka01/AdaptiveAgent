@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     embedding_api_key: str | None = None
 
     reranker_provider: str = "bge"
+    reranker_model: str = ""
     reranker_api_base: str | None = None
     reranker_api_key: str | None = None
 
