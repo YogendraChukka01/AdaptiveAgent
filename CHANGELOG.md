@@ -8,8 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 - Professional repository documentation and contribution guidance
-- CI workflow for backend and frontend checks
+- CI workflow for backend and frontend checks (matrix, caching, security scanning)
 - Environment example files and improved ignore rules
+- Makefile with 20+ development commands (setup, dev, test, lint, format, docker, clean)
+- Cross-platform setup scripts (setup.sh for macOS/Linux, setup.ps1 for Windows)
+- Environment verification script (verify.sh)
+- Professional README with platform-specific setup guides (Windows, macOS, Linux)
 
 ### Fixed
 - Critical: thread_id state leakage across users
