@@ -19,7 +19,7 @@ from app.core.threads import (
     clear_pending_approval,
     track_pending_approval,
 )
-from app.models.schemas import ApprovalRequest, ChatRequest, ChatMessage
+from app.models.schemas import ApprovalRequest, ChatRequest
 from app.models.state import AgentState
 from app.services.audit.audit import record_audit
 from app.services.memory.memory import memory_manager

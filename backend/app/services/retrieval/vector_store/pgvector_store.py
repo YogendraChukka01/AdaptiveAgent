@@ -50,16 +50,21 @@ class PGVectorStore(BaseVectorStore):
         metadatas: list[dict] | None = None,
     ) -> None:
         import asyncio
+        import json
+
         import asyncpg
 
         async def _insert():
-            conn = await asyncpg.connect(self.config.pg_connection_string.replace("+asyncpg", ""))
+            conn = await asyncpg.connect(
+                self.config.pg_connection_string.replace("+asyncpg", "")
+            )
             try:
                 for i in range(len(ids)):
                     meta = (metadatas[i] if metadatas else {}) | {"_id": ids[i]}
                     await conn.execute(
                         """
-                        INSERT INTO langchain_pg_embedding (collection_id, embedding, document, cmetadata, custom_id)
+                        INSERT INTO langchain_pg_embedding
+                            (collection_id, embedding, document, cmetadata, custom_id)
                         VALUES ($1, $2, $3, $4::jsonb, $5)
                         ON CONFLICT (collection_id, custom_id) DO UPDATE SET
                             embedding = EXCLUDED.embedding,
@@ -69,7 +74,7 @@ class PGVectorStore(BaseVectorStore):
                         self._get_or_create_collection_id(conn),
                         embeddings[i],
                         documents[i],
-                        __import__("json").dumps(meta),
+                        json.dumps(meta),
                         ids[i],
                     )
             finally:
@@ -88,11 +93,14 @@ class PGVectorStore(BaseVectorStore):
         where: dict | None = None,
     ) -> dict:
         import asyncio
-        import asyncpg
         import json
 
+        import asyncpg
+
         async def _query():
-            conn = await asyncpg.connect(self.config.pg_connection_string.replace("+asyncpg", ""))
+            conn = await asyncpg.connect(
+                self.config.pg_connection_string.replace("+asyncpg", "")
+            )
             try:
                 collection_id = self._get_or_create_collection_id(conn)
                 rows = await conn.fetch(
@@ -112,7 +120,9 @@ class PGVectorStore(BaseVectorStore):
                 distances = []
                 for row in rows:
                     documents.append(row["document"] or "")
-                    metadatas.append(json.loads(row["cmetadata"]) if row["cmetadata"] else {})
+                    metadatas.append(
+                        json.loads(row["cmetadata"]) if row["cmetadata"] else {}
+                    )
                     distances.append(float(row["distance"]))
                 return documents, metadatas, distances
             finally:

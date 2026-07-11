@@ -105,7 +105,10 @@ async def upload_document(
     if len(chunks) > MAX_CHUNKS:
         raise HTTPException(
             status_code=413,
-            detail=f"Document produces too many chunks ({len(chunks)}). Maximum: {MAX_CHUNKS}. Try splitting the file.",
+            detail=(
+                f"Document produces too many chunks ({len(chunks)}). "
+                f"Maximum: {MAX_CHUNKS}. Try splitting the file."
+            ),
         )
 
     ids = [str(uuid.uuid4()) for _ in chunks]
