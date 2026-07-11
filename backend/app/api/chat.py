@@ -328,6 +328,5 @@ async def list_pending_approvals(
 
     results = await _list(include_expired=True)
     return [
-        {k: v for k, v in entry.items() if k not in ("age_seconds", "expired")}
-        for entry in results
+        {k: v for k, v in entry.items() if k not in ("age_seconds", "expired")} for entry in results
     ]

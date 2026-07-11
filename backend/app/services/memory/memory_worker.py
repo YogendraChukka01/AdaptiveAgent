@@ -152,15 +152,14 @@ class MemoryDistiller:
                     )
                     return llm.invoke([HumanMessage(content=prompt)])  # type: ignore[union-attr]
 
-                response = await asyncio.wait_for(
-                    asyncio.to_thread(_call_llm), timeout=120
-                )
+                response = await asyncio.wait_for(asyncio.to_thread(_call_llm), timeout=120)
                 content = response.content.strip()  # type: ignore[union-attr]
                 content = content.strip("`").strip()
                 if content.startswith("json\n"):
                     content = content[5:]
                 import re
-                match = re.search(r'\[.*\]', content, re.DOTALL)
+
+                match = re.search(r"\[.*\]", content, re.DOTALL)
                 if match:
                     return json.loads(match.group())
                 return json.loads(content)

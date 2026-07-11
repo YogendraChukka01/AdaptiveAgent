@@ -109,9 +109,7 @@ class Settings(BaseSettings):
 
     approval_ttl_seconds: int = 86400
 
-    cors_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:3000"]
-    )
+    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
 
 
 settings = Settings()

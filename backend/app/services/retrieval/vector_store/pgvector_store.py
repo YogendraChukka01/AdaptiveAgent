@@ -55,9 +55,7 @@ class PGVectorStore(BaseVectorStore):
         import asyncpg
 
         async def _insert():
-            conn = await asyncpg.connect(
-                self.config.pg_connection_string.replace("+asyncpg", "")
-            )
+            conn = await asyncpg.connect(self.config.pg_connection_string.replace("+asyncpg", ""))
             try:
                 for i in range(len(ids)):
                     meta = (metadatas[i] if metadatas else {}) | {"_id": ids[i]}
@@ -98,9 +96,7 @@ class PGVectorStore(BaseVectorStore):
         import asyncpg
 
         async def _query():
-            conn = await asyncpg.connect(
-                self.config.pg_connection_string.replace("+asyncpg", "")
-            )
+            conn = await asyncpg.connect(self.config.pg_connection_string.replace("+asyncpg", ""))
             try:
                 collection_id = self._get_or_create_collection_id(conn)
                 rows = await conn.fetch(
@@ -120,9 +116,7 @@ class PGVectorStore(BaseVectorStore):
                 distances = []
                 for row in rows:
                     documents.append(row["document"] or "")
-                    metadatas.append(
-                        json.loads(row["cmetadata"]) if row["cmetadata"] else {}
-                    )
+                    metadatas.append(json.loads(row["cmetadata"]) if row["cmetadata"] else {})
                     distances.append(float(row["distance"]))
                 return documents, metadatas, distances
             finally:
