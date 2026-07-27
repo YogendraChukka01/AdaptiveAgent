@@ -9,6 +9,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
 from app.core.auth import require_api_key
+from app.core.config import settings
 from app.services.retrieval.embeddings.embedder import embed_texts
 from app.services.retrieval.vector_store.chroma_store import add_documents
 
@@ -114,11 +115,13 @@ async def upload_document(
     ids = [str(uuid.uuid4()) for _ in chunks]
 
     embeddings = await asyncio.to_thread(embed_texts, chunks)
+    if len(embeddings) != len(chunks):
+        raise ValueError(f"Embedding count mismatch: {len(embeddings)} != {len(chunks)}")
     metadatas = [{"source": file.filename, "chunk": i} for i in range(len(chunks))]
 
     await asyncio.to_thread(
         add_documents,
-        collection_name="safeagent_docs",
+        collection_name=settings.vector_store_collection,
         ids=ids,
         embeddings=embeddings,
         documents=chunks,

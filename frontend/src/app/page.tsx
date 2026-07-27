@@ -17,7 +17,9 @@ const generateId = (): string => {
   try {
     return crypto.randomUUID();
   } catch {
-    return Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const arr = new Uint8Array(16);
+    crypto.getRandomValues(arr);
+    return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
   }
 };
 
@@ -97,6 +99,9 @@ export default function Home() {
           setApproval(ev.payload);
         }
       }
+      if (fullResponse && !lastResult) {
+        applyResult({ response: fullResponse, citations: [], confidence_score: 0, risk_level: "low", risk_score: 0 } as ChatResult);
+      }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       console.error("Stream error:", err);
@@ -160,7 +165,8 @@ export default function Home() {
 
         <div
           role="log"
-          aria-live="polite"
+          aria-live={isLoading ? "off" : "polite"}
+          aria-busy={isLoading}
           aria-label="Chat messages"
           className="flex-1 overflow-y-auto px-4 py-6 space-y-4"
         >

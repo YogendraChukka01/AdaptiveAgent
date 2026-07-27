@@ -209,9 +209,9 @@ def verify_evidence(
 
     weights = settings.evidence_weights
     coverage_score = (
-        avg_term_coverage * weights["term_coverage"]
-        + doc_count_score * weights["doc_count"]
-        + credibility * weights["credibility"]
+        avg_term_coverage * weights.get("term_coverage", 0.33)
+        + doc_count_score * weights.get("doc_count", 0.33)
+        + credibility * weights.get("credibility", 0.34)
     )
     coverage_score = max(0.0, min(1.0, coverage_score))
 

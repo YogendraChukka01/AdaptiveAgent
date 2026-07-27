@@ -29,3 +29,8 @@ body {
   background: var(--bg-tertiary);
   border-radius: 3px;
 }
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--bg-tertiary, #2d3748) var(--bg-secondary, #1a202c);
+}

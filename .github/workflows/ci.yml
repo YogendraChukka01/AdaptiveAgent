@@ -6,10 +6,15 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.11", "3.12"]
     steps:
@@ -34,7 +39,10 @@ jobs:
         working-directory: backend
         run: python -m pytest tests/ -v --cov=app --cov-report=xml
       - name: Security scan
-        run: pip install pip-audit && pip-audit
+        working-directory: backend
+        run: |
+          pip install pip-audit
+          pip-audit -r <(pip freeze)
 
   frontend:
     runs-on: ubuntu-latest
@@ -54,8 +62,11 @@ jobs:
       - name: Lint
         working-directory: frontend
         run: npx next lint
+      - name: Build
+        run: npm run build
 
   docker:
+    needs: [backend, frontend]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

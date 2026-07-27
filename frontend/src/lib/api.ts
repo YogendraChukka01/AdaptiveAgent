@@ -247,7 +247,11 @@ export async function approveAction(
     };
     throw new Error(messages[response.status] || `Request failed (${response.status})`);
   }
-  return response.json();
+  try {
+    return await response.json();
+  } catch {
+    throw new Error("Invalid response from server");
+  }
 }
 
 export async function uploadDocument(
@@ -274,5 +278,9 @@ export async function uploadDocument(
     };
     throw new Error(messages[response.status] || `Upload failed (${response.status})`);
   }
-  return response.json();
+  try {
+    return await response.json();
+  } catch {
+    throw new Error("Invalid response from server");
+  }
 }

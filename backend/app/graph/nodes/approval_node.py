@@ -31,6 +31,9 @@ def approval_node(state: AgentState) -> dict:
         }
     )
 
+    if human_input is None:
+        return {"approval_status": "rejected"}
+
     approved = (
         bool(human_input.get("approved")) if isinstance(human_input, dict) else bool(human_input)
     )

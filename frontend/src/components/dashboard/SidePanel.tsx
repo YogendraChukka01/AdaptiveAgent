@@ -26,15 +26,17 @@ function ScoreBar({ label, value, color }: { label: string; value: number; color
 
 export function SidePanel({ result, onClose }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     panelRef.current?.focus();
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
     };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [onClose]);
+  }, []);
 
   const riskColor =
     result.risk_level === "high"

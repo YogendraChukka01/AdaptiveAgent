@@ -25,7 +25,7 @@ def retrieval_node(state: AgentState) -> dict:
         results = hybrid_search(query, query_embedding, dense_k=dense_k, final_k=final_k)
     except Exception:
         logger.exception("Retrieval failed for query: %s", query[:100])
-        return {"retrieved_docs": [], "retrieval_scores": []}
+        return {"retrieved_docs": [], "retrieval_scores": [], "error": "Retrieval failed"}
 
     docs = []
     scores = []

@@ -57,6 +57,7 @@ def refine_node(state: AgentState) -> dict:
         "retry_count": retry_count,
         "sanitized_query": refined,
         "refined_query": refined,
+        "tool_results": [],
         # keep counting toward the circuit breaker on every retry iteration
         "step_count": state.step_count + 1,
     }

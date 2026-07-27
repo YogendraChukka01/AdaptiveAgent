@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -11,8 +13,11 @@ from app.api.health import close_health_client
 from app.core.config import settings
 from app.core.database import init_db
 from app.core.deps import init_graph, shutdown_graph
+from app.core.threads import expire_pending_approvals
 from app.services.memory.memory import memory_manager
 from app.services.memory.memory_worker import memory_distiller
+
+logger = logging.getLogger(__name__)
 
 
 def _configure_tracing() -> None:
@@ -28,13 +33,34 @@ def _configure_tracing() -> None:
     os.environ["LANGCHAIN_PROJECT"] = settings.langsmith_project
 
 
+async def _expire_pending_approvals_loop():
+    """Periodically reject approval threads that exceeded the TTL."""
+    while True:
+        try:
+            expired = await expire_pending_approvals()
+            if expired:
+                logger.info("Expired %d pending approval(s)", expired)
+        except Exception:
+            logger.exception("Failed to expire pending approvals")
+        await asyncio.sleep(settings.approval_ttl_seconds // 2 or 300)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _configure_tracing()
     await init_db()
     await init_graph()
     await memory_distiller.start()
+
+    expire_task = asyncio.create_task(_expire_pending_approvals_loop())
+
     yield
+
+    expire_task.cancel()
+    try:
+        await expire_task
+    except asyncio.CancelledError:
+        pass
     await memory_distiller.stop()
     await memory_manager.close()
     await close_health_client()

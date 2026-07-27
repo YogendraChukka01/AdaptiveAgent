@@ -44,6 +44,9 @@ def rerank(
     if not isinstance(scores, list):
         scores = [scores]
 
+    if len(scores) < len(documents):
+        scores.extend([0.0] * (len(documents) - len(scores)))
+
     indexed = [(documents[i], scores[i], i) for i in range(len(documents))]
     indexed.sort(key=lambda x: x[1], reverse=True)
     return [(doc, score, idx) for doc, score, idx in indexed[:top_k]]

@@ -36,6 +36,10 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        limits:
+          memory: 8G
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 30s
@@ -59,9 +63,9 @@ services:
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 5
-      start_period: 15s
+      start_period: 60s
     depends_on:
       postgres:
         condition: service_healthy

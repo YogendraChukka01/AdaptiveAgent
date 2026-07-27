@@ -65,7 +65,7 @@ def _build_result(values: dict, thread_id: str) -> dict:
         "eval_score": values.get("eval_score", 0.0),
         "eval_details": values.get("eval_details", ""),
         "step_count": values.get("step_count", 0),
-        "approval_status": values.get("approval_status", "pending"),
+        "approval_status": values.get("approval_status", "completed"),
     }
 
 
@@ -216,6 +216,9 @@ async def chat(
         content = m.get("content", "")
         if role == "assistant":
             history_messages.append(AIMessage(content=content))
+        elif role == "system":
+            from langchain_core.messages import SystemMessage
+            history_messages.append(SystemMessage(content=content))
         else:
             history_messages.append(HumanMessage(content=content))
 
