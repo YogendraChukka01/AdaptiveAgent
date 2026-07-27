@@ -100,7 +100,7 @@ export default function Home() {
         }
       }
       if (fullResponse && !lastResult) {
-        applyResult({ response: fullResponse, citations: [], confidence_score: 0, risk_level: "low", risk_score: 0 } as ChatResult);
+        applyResult({ response: fullResponse, citations: [], confidence_score: 0, risk_level: "low", risk_score: 0, reasoning_path: [], step_count: 0 } as ChatResult);
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;

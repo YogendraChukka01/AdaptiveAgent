@@ -39,7 +39,12 @@ def tools_node(state: AgentState) -> dict:
             result = execute_tool(record.tool, args)
         except Exception as exc:
             logger.exception("Tool %s failed", record.tool)
-            result = ToolCallRecord(tool=record.tool, input=record.input, success=False, error=str(exc))
+            result = ToolCallRecord(
+                tool=record.tool,
+                input=record.input,
+                success=False,
+                error=str(exc),
+            )
         executed.append(result)
 
     return {
