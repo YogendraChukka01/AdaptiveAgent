@@ -240,6 +240,18 @@ async def chat(
 
     try:
         result = await graph.ainvoke(state, config=config)
+    except GraphInterrupt:
+        snapshot = await graph.aget_state(config)
+        inter_value = _extract_interrupt(None, snapshot)
+        values = snapshot.values
+        payload = _build_approval_payload(values, thread_id, inter_value)
+        await track_pending_approval(
+            thread_id,
+            payload.get("risk_level"),
+            payload.get("risk_score"),
+            last_message,
+        )
+        return payload
     except Exception:
         logger.exception("Graph execution failed for thread %s", thread_id)
         raise HTTPException(status_code=500, detail="Internal error during processing")

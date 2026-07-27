@@ -68,6 +68,7 @@ export default function Home() {
     const userMsg: ChatMessage = { id: generateId(), role: "user", content };
     const assistantMsg: ChatMessage = { id: generateId(), role: "assistant", content: "" };
 
+    messagesRef.current = [...messagesRef.current, userMsg];
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setIsLoading(true);
     setApproval(null);
@@ -111,7 +112,7 @@ export default function Home() {
         return updated;
       });
     } finally {
-      if (!controller.signal.aborted) setIsLoading(false);
+      setIsLoading(false);
     }
   }, [threadId, applyResult]);
 
@@ -139,7 +140,7 @@ export default function Home() {
         },
       ]);
     } finally {
-      if (!controller.signal.aborted) setIsLoading(false);
+      setIsLoading(false);
     }
   }, [threadId]);
 

@@ -158,7 +158,7 @@ def _score_credibility(documents: list[dict]) -> float:
             if keyword in source:
                 score = 0.9
                 break
-        if d.get("page"):
+        if d.get("page") is not None:
             score = min(1.0, score + 0.1)
         scores.append(score)
     return sum(scores) / len(scores)

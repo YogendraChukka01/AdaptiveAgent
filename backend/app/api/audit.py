@@ -17,7 +17,8 @@ async def get_audit_logs(
     thread_id: str | None = None,
     _auth: str = Depends(require_api_key),
 ):
-    limit = min(limit, 200)
+    limit = max(1, min(limit, 200))
+    offset = max(0, offset)
 
     async with async_session_factory() as session:
         query = select(AuditLog).order_by(AuditLog.created_at.desc())

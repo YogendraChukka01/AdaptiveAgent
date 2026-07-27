@@ -16,14 +16,11 @@ class MemoryManager:
         self._lock = asyncio.Lock()
 
     async def _get_redis(self) -> redis.Redis:
+        if self._redis is not None:
+            return self._redis
         async with self._lock:
             if self._redis is None:
                 self._redis = redis.from_url(settings.redis_url, decode_responses=True)
-            else:
-                try:
-                    await self._redis.ping()
-                except (redis.ConnectionError, redis.TimeoutError, OSError):
-                    self._redis = redis.from_url(settings.redis_url, decode_responses=True)
             return self._redis
 
     async def get_redis(self) -> redis.Redis:

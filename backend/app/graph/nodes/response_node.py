@@ -49,7 +49,7 @@ def response_node(state: AgentState) -> dict:
         response = _REFUSAL
 
     if response and not _is_refusal(response):
-        tool_results = [r for r in state.tool_results if r]
+        tool_results = [r for r in state.tool_results if r and _is_safe_output(r)]
         if tool_results:
             joined = "\n\n".join(f"- {r}" for r in tool_results)
             response = f"{response}\n\nTool results used:\n{joined}"

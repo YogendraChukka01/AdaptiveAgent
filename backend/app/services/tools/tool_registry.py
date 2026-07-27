@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import time
 from typing import Any
@@ -57,7 +58,7 @@ def read_file(filepath: str) -> str:
         return f"Error reading file: {e}"
 
 
-def execute_tool(name: str, args: dict[str, Any]) -> ToolCallRecord:
+async def execute_tool(name: str, args: dict[str, Any]) -> ToolCallRecord:
     start = time.time()
     last_error: str | None = None
 
@@ -77,7 +78,12 @@ def execute_tool(name: str, args: dict[str, Any]) -> ToolCallRecord:
                 )
 
             fn = tools_map[name]
-            result = fn.invoke(args)
+            try:
+                result = await asyncio.to_thread(fn.invoke, args)
+            except Exception as e:
+                last_error = str(e)
+                await asyncio.sleep(0.5 * (attempt + 1))
+                continue
 
             duration = (time.time() - start) * 1000
             return ToolCallRecord(
@@ -90,7 +96,7 @@ def execute_tool(name: str, args: dict[str, Any]) -> ToolCallRecord:
 
         except Exception as e:
             last_error = str(e)
-            time.sleep(0.5 * (attempt + 1))
+            await asyncio.sleep(0.5 * (attempt + 1))
 
     duration = (time.time() - start) * 1000
     return ToolCallRecord(

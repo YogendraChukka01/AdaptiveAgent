@@ -17,7 +17,7 @@ def retrieval_node(state: AgentState) -> dict:
 
     # On retries, widen the candidate surface area (CRAG: don't optimise k too
     # early). More candidates => a better chance the reranker keeps relevant ones.
-    dense_k = 20 + state.retry_count * 10
+    dense_k = min(20 + state.retry_count * 10, 100)
     final_k = min(5 + state.retry_count * 3, 20)
 
     try:

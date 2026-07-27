@@ -54,6 +54,8 @@ async def get_graph() -> AsyncGenerator[CompiledStateGraph, None]:
 
 
 async def shutdown_graph() -> None:
-    global _pool
+    global _pool, _graph
     if _pool is not None:
         await _pool.close()
+        _pool = None
+    _graph = None

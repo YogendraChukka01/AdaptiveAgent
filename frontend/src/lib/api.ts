@@ -59,7 +59,7 @@ export async function* streamChat(
   });
 
   if (!response.ok) {
-    const messages: Record<number, string> = {
+    const errorMessages: Record<number, string> = {
       400: "Invalid request",
       401: "Authentication required",
       403: "Access denied",
@@ -67,7 +67,7 @@ export async function* streamChat(
       429: "Too many requests",
       500: "Server error",
     };
-    throw new Error(messages[response.status] || `Request failed (${response.status})`);
+    throw new Error(errorMessages[response.status] || `Request failed (${response.status})`);
   }
 
   const contentType = response.headers.get("content-type") || "";

@@ -1,4 +1,4 @@
-# SafeAgent — Build Guide for AI Coding Agents
+# AdaptiveAgent — Build Guide for AI Coding Agents
 
 ## Project Overview
 

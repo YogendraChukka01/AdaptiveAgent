@@ -25,7 +25,7 @@ class UnsupportedFileTypeError(Exception):
 
 
 def _extract_text(content: bytes, filename: str) -> str:
-    if filename.endswith(".pdf"):
+    if filename.lower().endswith(".pdf"):
         try:
             import fitz
 
@@ -39,7 +39,7 @@ def _extract_text(content: bytes, filename: str) -> str:
             raise UnsupportedFileTypeError(
                 "PDF support requires PyMuPDF. Install with: pip install PyMuPDF"
             )
-    elif filename.endswith(".docx"):
+    elif filename.lower().endswith(".docx"):
         try:
             from docx import Document
 

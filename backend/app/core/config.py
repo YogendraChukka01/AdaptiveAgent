@@ -11,7 +11,7 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    app_name: str = "SafeAgent"
+    app_name: str = "AdaptiveAgent"
     debug: bool = False
     log_level: str = "INFO"
 

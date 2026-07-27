@@ -20,7 +20,9 @@ export default function Error({
           Something went wrong
         </h2>
         <p className="text-sm text-[var(--text-secondary)]">
-          {error.digest || error.message || "An unexpected error occurred."}
+          {process.env.NODE_ENV === "production"
+            ? (error.digest || "An unexpected error occurred.")
+            : (error.digest || error.message || "An unexpected error occurred.")}
         </p>
         <button
           onClick={reset}

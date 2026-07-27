@@ -30,15 +30,19 @@ def route_after_retrieval(state: AgentState) -> Literal["evidence", "response", 
     return "evidence"
 
 
-def route_after_evidence(state: AgentState) -> Literal["reasoning", "refine", "error"]:
+def route_after_evidence(state: AgentState) -> Literal["reasoning", "refine", "response", "error"]:
     if state.error:
         return "error"
-    if state.evidence_coverage < settings.evidence_threshold and state.step_count < state.max_steps:
-        return "refine"
+    if state.evidence_coverage < settings.evidence_threshold:
+        if state.step_count < state.max_steps:
+            return "refine"
+        return "response"  # degrade gracefully instead of hallucinating
     return "reasoning"
 
 
-def route_after_confidence(state: AgentState) -> Literal["risk", "refine"]:
+def route_after_confidence(state: AgentState) -> Literal["risk", "refine", "error"]:
+    if state.error:
+        return "error"
     if (
         state.confidence_score < settings.confidence_retry_threshold
         and state.step_count < state.max_steps
@@ -47,7 +51,9 @@ def route_after_confidence(state: AgentState) -> Literal["risk", "refine"]:
     return "risk"
 
 
-def route_after_risk(state: AgentState) -> Literal["approval"]:
+def route_after_risk(state: AgentState) -> Literal["approval", "error"]:
+    if state.error:
+        return "error"
     return "approval"
 
 

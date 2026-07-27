@@ -5,6 +5,7 @@ import logging
 
 import httpx
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.core.config import settings
@@ -63,9 +64,13 @@ async def health_check():
     except Exception as e:
         logger.warning("Database health check failed: %s", e)
 
-    return HealthResponse(
-        status="ok",
+    all_ok = ollama_ok and db_ok
+    response = HealthResponse(
+        status="ok" if all_ok else "degraded",
         ollama_connected=ollama_ok,
         chroma_connected=chroma_ok,
         db_connected=db_ok,
     )
+    if not all_ok:
+        return JSONResponse(content=response.model_dump(), status_code=503)
+    return response

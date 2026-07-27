@@ -22,10 +22,10 @@ check() {
     local cmd="$2"
     if eval "$cmd" &>/dev/null; then
         echo -e "  ${GREEN}✓${NC} $name"
-        ((PASS++))
+        PASS=$((PASS + 1))
     else
         echo -e "  ${RED}✗${NC} $name"
-        ((FAIL++))
+        FAIL=$((FAIL + 1))
     fi
 }
 
@@ -52,7 +52,7 @@ if [ -d "backend/.venv" ]; then
     check "Backend tests" "cd backend && .venv/bin/python -m pytest tests/ -q --tb=no 2>/dev/null"
 else
     echo -e "  ${RED}✗${NC} Virtual environment (run setup.sh first)"
-    ((FAIL++))
+    FAIL=$((FAIL + 1))
 fi
 
 # ── Frontend ─────────────────────────────────────────────────
@@ -63,7 +63,7 @@ if [ -d "frontend/node_modules" ]; then
     check "TypeScript compiles" "cd frontend && npx tsc --noEmit 2>/dev/null"
 else
     echo -e "  ${RED}✗${NC} node_modules (run setup.sh first)"
-    ((FAIL++))
+    FAIL=$((FAIL + 1))
 fi
 
 # ── Configuration ────────────────────────────────────────────

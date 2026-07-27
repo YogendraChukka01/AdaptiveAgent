@@ -46,6 +46,13 @@ def refine_node(state: AgentState) -> dict:
     base = state.sanitized_query or state.query
     refined = _refine_query(base, retry_count, state.evidence_missing)
 
+    # Validate the refined query to prevent injection via query rewrite
+    from app.services.validator.validator import validate_query
+
+    result = validate_query(refined)
+    if not result.is_safe:
+        return {"error": "Refined query failed safety validation", "retry_count": retry_count}
+
     return {
         "retry_count": retry_count,
         "sanitized_query": refined,

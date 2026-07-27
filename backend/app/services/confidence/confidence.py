@@ -10,7 +10,7 @@ def calculate_confidence(
 
     if retrieval_scores:
         avg_similarity = sum(retrieval_scores) / len(retrieval_scores)
-        factors["retrieval_similarity"] = min(1.0, avg_similarity)
+        factors["retrieval_similarity"] = max(0.0, min(1.0, avg_similarity))
     else:
         factors["retrieval_similarity"] = 0.0
 
