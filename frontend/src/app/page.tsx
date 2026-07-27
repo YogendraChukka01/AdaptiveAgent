@@ -170,7 +170,15 @@ export default function Home() {
           aria-label="Chat messages"
           className="flex-1 overflow-y-auto px-4 py-6 space-y-4"
         >
-          {messages.length === 0 && (
+          {messages.length === 0 && isLoading && (
+            <div className="flex items-center justify-center h-full text-[var(--text-secondary)]">
+              <div className="text-center space-y-2">
+                <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                <p className="text-sm">Loading…</p>
+              </div>
+            </div>
+          )}
+          {messages.length === 0 && !isLoading && (
             <div className="flex items-center justify-center h-full text-[var(--text-secondary)]">
               <div className="text-center space-y-2">
                 <p className="text-xl">Ask me anything</p>

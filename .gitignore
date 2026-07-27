@@ -12,6 +12,7 @@ dist/
 .ruff_cache/
 .coverage
 htmlcov/
+coverage.xml
 .venv/
 venv/
 env/

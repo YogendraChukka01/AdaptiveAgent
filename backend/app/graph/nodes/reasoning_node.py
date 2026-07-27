@@ -13,6 +13,8 @@ def reasoning_node(state: AgentState) -> dict:
         query = state.sanitized_query or state.query
         answer, reasoning_parts = reason_with_evidence(query, state.retrieved_docs)
 
+        if not answer or not answer.strip():
+            answer = "Reasoning completed based on available evidence."
         return {
             "final_response": answer,
             "reasoning_path": reasoning_parts,

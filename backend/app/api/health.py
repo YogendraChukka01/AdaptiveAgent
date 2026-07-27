@@ -58,9 +58,10 @@ async def health_check():
     try:
         from app.core.database import async_session_factory
 
-        async with async_session_factory() as session:
-            await session.execute(text("SELECT 1"))
-            db_ok = True
+        async with asyncio.timeout(5):
+            async with async_session_factory() as session:
+                await session.execute(text("SELECT 1"))
+                db_ok = True
     except Exception as e:
         logger.warning("Database health check failed: %s", e)
 

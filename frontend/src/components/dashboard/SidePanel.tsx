@@ -95,7 +95,7 @@ export function SidePanel({ result, onClose }: Props) {
             </h3>
             <ol className="space-y-1.5">
               {result.reasoning_path.map((step, i) => (
-                <li key={i} className="text-xs text-[var(--text-primary)] flex gap-2">
+                <li key={`step-${i}-${step.slice(0, 20)}`} className="text-xs text-[var(--text-primary)] flex gap-2">
                   <span className="text-[var(--text-secondary)] shrink-0">{i + 1}.</span>
                   <span>{step}</span>
                 </li>
@@ -112,7 +112,7 @@ export function SidePanel({ result, onClose }: Props) {
             <div className="space-y-2">
               {result.citations.map((cite, i) => (
                 <div
-                  key={i}
+                  key={`cite-${i}-${cite.source}`}
                   className="text-xs bg-[var(--bg-tertiary)] rounded-lg p-2.5 space-y-1"
                 >
                   <div className="flex justify-between">

@@ -53,6 +53,9 @@ def refine_node(state: AgentState) -> dict:
     if not result.is_safe:
         return {"error": "Refined query failed safety validation", "retry_count": retry_count}
 
+    if len(refined) > 500:
+        refined = refined[:500]
+
     return {
         "retry_count": retry_count,
         "sanitized_query": refined,

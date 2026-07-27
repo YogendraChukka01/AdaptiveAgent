@@ -74,6 +74,7 @@ export function ApprovalCard({ payload, onResolved }: Props) {
           type="button"
           onClick={() => handle("approve")}
           disabled={pending}
+          aria-label="Approve response"
           className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
         >
           Approve
@@ -82,6 +83,7 @@ export function ApprovalCard({ payload, onResolved }: Props) {
           type="button"
           onClick={() => handle("reject")}
           disabled={pending}
+          aria-label="Reject response"
           className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
         >
           Reject

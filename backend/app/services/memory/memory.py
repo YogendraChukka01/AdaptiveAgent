@@ -39,6 +39,8 @@ class MemoryManager:
         trust_score: float = 1.0,
         ttl: int = 86400,
     ):
+        if not isinstance(role, str) or not isinstance(content, str):
+            raise ValueError(f"Invalid message format: role={type(role)}, content={type(content)}")
         r = await self._get_redis()
         entry = {
             "role": role,

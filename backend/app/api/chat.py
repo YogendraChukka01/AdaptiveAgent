@@ -1,3 +1,5 @@
+# API Versioning: All endpoints are v1 (implicit). Use URL prefix /api/v2/ for breaking changes.
+
 from __future__ import annotations
 
 import json
@@ -83,6 +85,20 @@ def _build_approval_payload(values: dict, thread_id: str, inter_value: dict | No
     }
 
 
+async def _save_turn(session_id: str, role: str, content: str, tool_calls: list | None = None):
+    """Save a conversation turn plus any tool calls."""
+    await memory_manager.store_conversation(session_id, role, content)
+    if tool_calls:
+        for tc in tool_calls:
+            entry = {
+                "role": "tool",
+                "tool_name": tc.get("tool_name", "unknown"),
+                "args": tc.get("args"),
+                "result": tc.get("result"),
+            }
+            await memory_manager.store_conversation(session_id, "tool", json.dumps(entry))
+
+
 def _extract_interrupt(result: dict | None, snapshot) -> dict | None:
     if isinstance(result, dict):
         interrupts = result.get("__interrupt__")
@@ -158,8 +174,12 @@ async def _stream_events(
 
     response_text = values.get("final_response", "")
     if response_text:
-        await memory_manager.store_conversation(thread_id, "user", state.query or "")
-        await memory_manager.store_conversation(thread_id, "assistant", response_text)
+        tool_calls_data = [
+            t.model_dump() if hasattr(t, "model_dump") else t
+            for t in values.get("tool_calls", [])
+        ]
+        await _save_turn(thread_id, "user", state.query or "")
+        await _save_turn(thread_id, "assistant", response_text, tool_calls_data)
 
     await record_audit(
         {
@@ -274,7 +294,11 @@ async def chat(
 
     await memory_manager.store_conversation(thread_id, "user", last_message)
     resp = values.get("final_response", "")
-    await memory_manager.store_conversation(thread_id, "assistant", resp)
+    tool_calls_data = [
+        t.model_dump() if hasattr(t, "model_dump") else t
+        for t in values.get("tool_calls", [])
+    ]
+    await _save_turn(thread_id, "assistant", resp, tool_calls_data)
 
     await record_audit(
         {
