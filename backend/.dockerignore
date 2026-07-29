@@ -1,0 +1,13 @@
+.git
+__pycache__
+*.pyc
+.venv
+.pytest_cache
+.ruff_cache
+.mypy_cache
+tests/
+*.md
+.env
+.env.*
+!/.env.example
+chroma_data/

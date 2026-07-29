@@ -1,0 +1,86 @@
+from __future__ import annotations
+
+from typing import Literal
+
+from app.core.config import settings
+from app.models.state import AgentState
+
+
+def route_after_validation(state: AgentState) -> Literal["planner", "error"]:
+    if state.error:
+        return "error"
+    if not state.is_safe:
+        return "error"
+    return "planner"
+
+
+def route_after_planner(state: AgentState) -> Literal["tool_planner", "response", "error"]:
+    if state.error:
+        return "error"
+    if not state.plan:
+        return "response"
+    return "tool_planner"
+
+
+def route_after_retrieval(state: AgentState) -> Literal["evidence", "response", "error"]:
+    if state.error:
+        return "error"
+    if not state.retrieved_docs:
+        return "response"
+    return "evidence"
+
+
+def route_after_evidence(state: AgentState) -> Literal["reasoning", "refine", "response", "error"]:
+    if state.error:
+        return "error"
+    if state.evidence_coverage < settings.evidence_threshold:
+        if state.step_count < state.max_steps:
+            return "refine"
+        return "response"  # degrade gracefully instead of hallucinating
+    return "reasoning"
+
+
+def route_after_confidence(state: AgentState) -> Literal["risk", "refine", "error"]:
+    if state.error:
+        return "error"
+    if (
+        state.confidence_score < settings.confidence_retry_threshold
+        and state.step_count < state.max_steps
+    ):
+        return "refine"
+    return "risk"
+
+
+def route_after_risk(state: AgentState) -> Literal["approval", "error"]:
+    if state.error:
+        return "error"
+    return "approval"
+
+
+def route_after_approval(state: AgentState) -> Literal["tools", "response"]:
+    if state.approval_status in ("approved", "not_required"):
+        return "tools"
+    return "response"
+
+
+def route_after_tools(state: AgentState) -> Literal["response", "refine", "error"]:
+    if state.error:
+        return "error"
+    if state.step_count >= state.max_steps:
+        return "response"
+    if any(not tc.success for tc in state.tool_calls):
+        return "refine"
+    return "response"
+
+
+def route_after_eval(state: AgentState) -> Literal["end", "refine"]:
+    """Route after the evaluation node.
+
+    If the eval score meets the threshold or the circuit breaker is
+    exhausted, finish.  Otherwise loop back to refine for another attempt.
+    """
+    if state.eval_score >= settings.eval_threshold:
+        return "end"
+    if state.step_count >= state.max_steps:
+        return "end"
+    return "refine"
