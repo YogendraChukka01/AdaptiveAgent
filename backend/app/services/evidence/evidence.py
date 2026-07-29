@@ -127,18 +127,25 @@ def _compute_contradictions(
 
             for term in overlap:
                 safe_term = re.escape(term)
-                neg_i = re.search(rf"\bnot\b.{{0,20}}\b{safe_term}\b", lower_i)
-                neg_i = neg_i or re.search(rf"\b{safe_term}\b.{{0,20}}\bnot\b", lower_i)
-                neg_j = re.search(rf"\bnot\b.{{0,20}}\b{safe_term}\b", lower_j)
-                neg_j = neg_j or re.search(rf"\b{safe_term}\b.{{0,20}}\bnot\b", lower_j)
-                negated_i = neg_i
-                negated_j = neg_j
-                if negated_i and not negated_j:
+                # Check term negated on both sides with multiple negation patterns
+                negation_patterns = [
+                    rf"\bnot\b.{{0,20}}\b{safe_term}\b",
+                    rf"\b{safe_term}\b.{{0,20}}\bnot\b",
+                    rf"\bnever\b.{{0,20}}\b{safe_term}\b",
+                    rf"\b{safe_term}\b.{{0,20}}\bnever\b",
+                    rf"\bwithout\b.{{0,20}}\b{safe_term}\b",
+                    rf"\bno\b.{{0,20}}\b{safe_term}\b",
+                    rf"\b(?:isn't|doesn't|don't|wasn't|weren't|haven't|hasn't|hadn't|won't|wouldn't|can't|couldn't|shouldn't|mightn't)\b.{{0,20}}\b{safe_term}\b",
+                    rf"\b{safe_term}\b.{{0,20}}\b(?:isn't|doesn't|don't|wasn't|weren't|haven't|hasn't|hadn't|won't|wouldn't|can't|couldn't|shouldn't|mightn't)\b",
+                ]
+                neg_i = any(re.search(p, lower_i) for p in negation_patterns)
+                neg_j = any(re.search(p, lower_j) for p in negation_patterns)
+                if neg_i and not neg_j:
                     contradictions.append(
                         f"{source_i} negates '{term}' while {source_j} affirms it"
                     )
                     break
-                if negated_j and not negated_i:
+                if neg_j and not neg_i:
                     contradictions.append(
                         f"{source_j} negates '{term}' while {source_i} affirms it"
                     )

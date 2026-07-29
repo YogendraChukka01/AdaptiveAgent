@@ -48,9 +48,9 @@ SQL_INJECTION_PATTERNS: list[re.Pattern] = [
     re.compile(r"\bUNION\s+(?:ALL\s+)?SELECT\b", re.IGNORECASE),
     re.compile(r"\b(?:DROP|TRUNCATE)\s+TABLE\b", re.IGNORECASE),
     re.compile(r"\bDELETE\s+FROM\b", re.IGNORECASE),
-    re.compile(r"[';]\s*UPDATE\s+\w+\s+SET\b", re.IGNORECASE),
+    re.compile(r"\bUPDATE\s+\w+\s+SET\b", re.IGNORECASE),
     re.compile(
-        r"[';]\s*insert\s+into\s+\w+\s*(?:\([^)]{0,100}\)\s*)?values\s*\(",
+        r"\binsert\s+into\s+\w+\s*(?:\([^)]{0,100}\)\s*)?values\s*\(",
         re.IGNORECASE,
     ),
     re.compile(r"\bOR\s+\d+\s*=\s*\d+", re.IGNORECASE),

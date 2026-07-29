@@ -116,7 +116,10 @@ async def upload_document(
 
     embeddings = await asyncio.to_thread(embed_texts, chunks)
     if len(embeddings) != len(chunks):
-        raise ValueError(f"Embedding count mismatch: {len(embeddings)} != {len(chunks)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Embedding count mismatch: {len(embeddings)} != {len(chunks)}",
+        )
     metadatas = [{"source": file.filename, "chunk": i} for i in range(len(chunks))]
 
     await asyncio.to_thread(

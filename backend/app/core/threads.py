@@ -37,7 +37,7 @@ async def track_pending_approval(
         "thread_id": thread_id,
         "risk_level": risk_level,
         "risk_score": risk_score,
-        "query": query[:500],
+        "query": query.encode("utf-8")[:500].decode("utf-8", errors="ignore"),
         "created_at": time.time(),
     }
     try:

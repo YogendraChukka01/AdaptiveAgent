@@ -8,9 +8,16 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+_cache_installed = False
+
 
 def _install_cache() -> None:
     """Enable LangChain's in-memory LLM cache when configured."""
+    global _cache_installed
+    if _cache_installed:
+        return
+    _cache_installed = True
+
     if not settings.llm_cache_enabled:
         return
     try:
@@ -20,9 +27,6 @@ def _install_cache() -> None:
         set_llm_cache(InMemoryCache())
     except Exception:
         logger.debug("LLM cache setup failed; caching disabled")
-
-
-_install_cache()
 
 
 def _build_langchain_llm(
@@ -204,6 +208,7 @@ def get_llm(
     provider switching).  Ollama timeouts, connection errors, and VRAM
     exhaustion automatically trigger fallback to the cloud model.
     """
+    _install_cache()
     has_fallback = bool(settings.llm_fallback_model)
 
     if has_fallback:

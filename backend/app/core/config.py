@@ -61,10 +61,6 @@ class Settings(BaseSettings):
     pinecone_api_key: str = ""
     pinecone_index_name: str = ""
 
-    auth_jwt_secret: str = ""
-    auth_jwt_algorithm: str = "HS256"
-    auth_token_expire_minutes: int = 60
-
     # API key for authenticating API clients (X-API-Key header).
     # Leave empty to disable auth (dev mode).
     api_key: str = ""
@@ -87,7 +83,7 @@ class Settings(BaseSettings):
         }
     )
 
-    max_query_length: int = 10000
+    max_query_length: int = 2000
 
     # ── Evaluation node ───────────────────────────────────────────────
     eval_enabled: bool = True

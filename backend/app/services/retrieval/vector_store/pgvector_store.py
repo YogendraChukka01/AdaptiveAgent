@@ -21,9 +21,9 @@ class PGVectorStore(BaseVectorStore):
 
     def _get_engine(self):
         if self._engine is None:
-            from sqlalchemy.ext.asyncio import create_async_engine
+            from sqlalchemy import create_engine  # sync engine — PGVector expects sync
 
-            self._engine = create_async_engine(self.config.pg_connection_string)
+            self._engine = create_engine(self.config.pg_connection_string)
         return self._engine
 
     def _get_collection(self):

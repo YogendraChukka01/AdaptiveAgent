@@ -94,11 +94,7 @@ export async function* streamChat(
         }, timeoutMs);
       });
 
-      const result = await Promise.race([readPromise, timeoutPromise]) as {
-        done: boolean;
-        value: Uint8Array;
-      };
-      const { done, value } = result;
+      const { done, value } = await Promise.race([readPromise, timeoutPromise]);
       if (done) {
         if (buffer.trim()) {
           for (const line of processBlock(buffer.trim())) {

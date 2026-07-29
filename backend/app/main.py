@@ -25,12 +25,16 @@ def _configure_tracing() -> None:
 
     Gated entirely on settings.langsmith_api_key so local/dev runs are
     unaffected. Env must be set before LangChain is first used.
+    Only sets each variable if another component hasn't already set it.
     """
     if not settings.langsmith_api_key:
         return
-    os.environ["LANGCHAIN_TRACING_V2"] = "true"
-    os.environ["LANGCHAIN_API_KEY"] = settings.langsmith_api_key
-    os.environ["LANGCHAIN_PROJECT"] = settings.langsmith_project
+    if "LANGCHAIN_TRACING_V2" not in os.environ:
+        os.environ["LANGCHAIN_TRACING_V2"] = "true"
+    if "LANGCHAIN_API_KEY" not in os.environ:
+        os.environ["LANGCHAIN_API_KEY"] = settings.langsmith_api_key
+    if "LANGCHAIN_PROJECT" not in os.environ:
+        os.environ["LANGCHAIN_PROJECT"] = settings.langsmith_project
 
 
 async def _expire_pending_approvals_loop():
