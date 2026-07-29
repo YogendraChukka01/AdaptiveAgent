@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 def planner_node(state: AgentState) -> dict:
     if state.retry_count >= state.max_retries:
-        return {"error": "Max planner retries exceeded"}
+        return {"error": "Max planner retries exceeded", "planner_output": state.plan or {}}
     try:
         query = state.sanitized_query or state.query
 

@@ -52,7 +52,7 @@ def read_file(filepath: str) -> str:
         if not allowed:
             return "Error: access denied — file not in allowed directory"
     try:
-        with open(resolved, "r", encoding="utf-8") as f:
+        with open(resolved, "r") as f:
             return f.read(_MAX_FILE_READ)
     except Exception as e:
         return f"Error reading file: {e}"
@@ -62,25 +62,29 @@ async def execute_tool(name: str, args: dict[str, Any]) -> ToolCallRecord:
     start = time.time()
     last_error: str | None = None
 
-    tools_map: dict[str, Any] = {
-        "web_search": web_search,
-        "read_file": read_file,
-    }
-
-    if name not in tools_map:
-        return ToolCallRecord(
-            tool=name,
-            input=str(args),
-            success=False,
-            error=f"Unknown tool: {name}",
-            duration_ms=0.0,
-        )
-
-    fn = tools_map[name]
-
     for attempt in range(_MAX_RETRIES):
         try:
-            result = await asyncio.to_thread(fn.invoke, **args)
+            tools_map = {
+                "web_search": web_search,
+                "read_file": read_file,
+            }
+            if name not in tools_map:
+                return ToolCallRecord(
+                    tool=name,
+                    input=str(args),
+                    success=False,
+                    error=f"Unknown tool: {name}",
+                    duration_ms=0.0,
+                )
+
+            fn = tools_map[name]
+            try:
+                result = await asyncio.to_thread(fn.invoke, args)
+            except Exception as e:
+                last_error = str(e)
+                await asyncio.sleep(0.5 * (attempt + 1))
+                continue
+
             duration = (time.time() - start) * 1000
             return ToolCallRecord(
                 tool=name,
@@ -89,6 +93,7 @@ async def execute_tool(name: str, args: dict[str, Any]) -> ToolCallRecord:
                 success=True,
                 duration_ms=round(duration, 2),
             )
+
         except Exception as e:
             last_error = str(e)
             await asyncio.sleep(0.5 * (attempt + 1))

@@ -72,8 +72,7 @@ def _build_result(values: dict, thread_id: str) -> dict:
 
 
 def _build_approval_payload(values: dict, thread_id: str, inter_value: dict | None) -> dict:
-    if inter_value is None:
-        inter_value = {}
+    inter_value = inter_value or {}
     return {
         "needs_approval": True,
         "thread_id": thread_id,
@@ -146,8 +145,6 @@ async def _stream_events(
                         content = "".join(text_parts)
                     if content:
                         yield f"event: token\ndata: {json.dumps({'token': content})}\n\n"
-    except GeneratorExit:
-        return
     except GraphInterrupt:
         interrupted = True
     except Exception:
@@ -167,19 +164,13 @@ async def _stream_events(
             payload.get("risk_score"),
             state.query or "",
         )
-        try:
-            yield f"event: needs_approval\ndata: {json.dumps(payload)}\n\n"
-            yield "event: done\ndata: [DONE]\n\n"
-        except GeneratorExit:
-            return
+        yield f"event: needs_approval\ndata: {json.dumps(payload)}\n\n"
+        yield "event: done\ndata: [DONE]\n\n"
         return
 
     values = snapshot.values
     complete_data = json.dumps(_build_result(values, thread_id))
-    try:
-        yield f"event: complete\ndata: {complete_data}\n\n"
-    except GeneratorExit:
-        return
+    yield f"event: complete\ndata: {complete_data}\n\n"
 
     response_text = values.get("final_response", "")
     if response_text:
@@ -214,10 +205,7 @@ async def _stream_events(
         }
     )
 
-    try:
-        yield "event: done\ndata: [DONE]\n\n"
-    except GeneratorExit:
-        return
+    yield "event: done\ndata: [DONE]\n\n"
 
 
 @router.post("")

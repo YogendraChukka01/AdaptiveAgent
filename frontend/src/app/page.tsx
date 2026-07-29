@@ -79,7 +79,7 @@ export default function Home() {
 
     try {
       let fullResponse = "";
-      const historyToSend = messagesRef.current;
+      const historyToSend = [...messagesRef.current, userMsg];
       const gen = streamChat(historyToSend, threadId, controller.signal);
 
       for await (const ev of gen) {
@@ -101,7 +101,7 @@ export default function Home() {
           setApproval(ev.payload);
         }
       }
-      if (fullResponse && !lastResultRef.current) {
+      if (fullResponse && !lastResult) {
         applyResult({ response: fullResponse, citations: [], confidence_score: 0, risk_level: "low", risk_score: 0, reasoning_path: [], step_count: 0 } as ChatResult);
       }
     } catch (err) {
@@ -212,9 +212,4 @@ export default function Home() {
         />
       </div>
 
-      {showPanel && lastResult && (
-        <SidePanel result={lastResult} onClose={() => setShowPanel(false)} />
-      )}
-    </div>
-  );
-}
+      {showPanel && lastRes

@@ -65,7 +65,7 @@ async def health_check():
     except Exception as e:
         logger.warning("Database health check failed: %s", e)
 
-    all_ok = ollama_ok and db_ok and chroma_ok
+    all_ok = ollama_ok and db_ok
     response = HealthResponse(
         status="ok" if all_ok else "degraded",
         ollama_connected=ollama_ok,

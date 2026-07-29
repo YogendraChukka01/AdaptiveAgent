@@ -50,7 +50,7 @@ def assess_risk(tool_calls: list[ToolCallRecord], plan: list[str]) -> tuple[floa
     else:
         total_risk = sum(other_risks) / max(len(other_risks), 1)
 
-    total_risk = min(100.0, max(0.0, total_risk))
+    total_risk = min(99.0, max(0.0, total_risk))
 
     if total_risk >= 70.0:
         level = "high"
