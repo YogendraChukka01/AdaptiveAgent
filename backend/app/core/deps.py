@@ -2,16 +2,19 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncGenerator
+from typing import TYPE_CHECKING
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from langgraph.graph.state import CompiledStateGraph
 from psycopg_pool import AsyncConnectionPool
 
 from app.core.config import settings
-from app.graph.builder import build_graph
+from app.graph.builder import CompiledGraph, build_graph
+
+if TYPE_CHECKING:
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 
 
-def _build_serde():
+def _build_serde() -> JsonPlusSerializer | None:
     """Build the checkpoint serializer, registering pydantic state types.
 
     Without this, LangGraph warns (and future versions will refuse) when
@@ -25,12 +28,12 @@ def _build_serde():
         return None
 
 
-_graph: CompiledStateGraph | None = None
+_graph: CompiledGraph | None = None
 _pool: AsyncConnectionPool | None = None
 _init_lock = asyncio.Lock()
 
 
-async def init_graph() -> CompiledStateGraph:
+async def init_graph() -> CompiledGraph:
     global _pool, _graph
     async with _init_lock:
         if _graph is not None:
@@ -43,13 +46,15 @@ async def init_graph() -> CompiledStateGraph:
             timeout=30,
         )
         serde = _build_serde()
-        checkpointer = AsyncPostgresSaver(pool=_pool, serde=serde)
+        # ``AsyncPostgresSaver`` accepts the pool as the positional ``conn``
+        # argument (it is not a ``pool`` keyword).
+        checkpointer = AsyncPostgresSaver(_pool, serde=serde)
         await checkpointer.setup()
         _graph = build_graph(checkpointer=checkpointer)
         return _graph
 
 
-async def get_graph() -> AsyncGenerator[CompiledStateGraph, None]:
+async def get_graph() -> AsyncGenerator[CompiledGraph, None]:
     yield await init_graph()
 
 

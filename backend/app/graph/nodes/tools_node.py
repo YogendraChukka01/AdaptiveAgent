@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Any
 
 from app.models.state import AgentState, ToolCallRecord
 from app.services.tools.tool_registry import execute_tool
@@ -9,7 +10,7 @@ from app.services.tools.tool_registry import execute_tool
 logger = logging.getLogger(__name__)
 
 
-def tools_node(state: AgentState) -> dict:
+async def tools_node(state: AgentState) -> dict[str, Any]:
     if not state.tool_calls:
         return {}
 
@@ -36,7 +37,7 @@ def tools_node(state: AgentState) -> dict:
             args = {}
 
         try:
-            result = execute_tool(record.tool, args)
+            result = await execute_tool(record.tool, args)
         except Exception as exc:
             logger.exception("Tool %s failed", record.tool)
             result = ToolCallRecord(

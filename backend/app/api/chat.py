@@ -6,17 +6,19 @@ import json
 import logging
 import time
 import uuid
+from collections.abc import AsyncGenerator
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langgraph.errors import GraphInterrupt
-from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 
 from app.core.auth import require_api_key
 from app.core.config import settings
 from app.core.deps import get_graph
+from app.graph.builder import CompiledGraph
 from app.core.threads import (
     clear_pending_approval,
     track_pending_approval,
@@ -44,15 +46,22 @@ def _recursion_limit() -> int:
     return max(50, settings.max_steps * 15)
 
 
-def _unwrap(result) -> dict:
+def _unwrap(result: Any) -> dict[str, Any]:
+    """Normalise a LangGraph invoke result into a plain state dict.
+
+    ``graph.ainvoke`` returns the full state as a ``dict``. For defensive
+    completeness, pydantic state models are also unwrapped via ``model_dump``.
+    """
     if isinstance(result, dict):
         return result
-    if hasattr(result, "values"):
-        return result.values
+    if hasattr(result, "model_dump"):
+        dump = result.model_dump()
+        if isinstance(dump, dict):
+            return dump
     return {}
 
 
-def _build_result(values: dict, thread_id: str) -> dict:
+def _build_result(values: dict[str, Any], thread_id: str) -> dict[str, Any]:
     return {
         "needs_approval": False,
         "thread_id": thread_id,
@@ -71,7 +80,9 @@ def _build_result(values: dict, thread_id: str) -> dict:
     }
 
 
-def _build_approval_payload(values: dict, thread_id: str, inter_value: dict | None) -> dict:
+def _build_approval_payload(
+    values: dict[str, Any], thread_id: str, inter_value: dict[str, Any] | None
+) -> dict[str, Any]:
     inter_value = inter_value or {}
     return {
         "needs_approval": True,
@@ -85,7 +96,12 @@ def _build_approval_payload(values: dict, thread_id: str, inter_value: dict | No
     }
 
 
-async def _save_turn(session_id: str, role: str, content: str, tool_calls: list | None = None):
+async def _save_turn(
+    session_id: str,
+    role: str,
+    content: str,
+    tool_calls: list[dict[str, Any]] | None = None,
+) -> None:
     """Save a conversation turn plus any tool calls."""
     await memory_manager.store_conversation(session_id, role, content)
     if tool_calls:
@@ -99,24 +115,27 @@ async def _save_turn(session_id: str, role: str, content: str, tool_calls: list 
             await memory_manager.store_conversation(session_id, "tool", json.dumps(entry))
 
 
-def _extract_interrupt(result: dict | None, snapshot) -> dict | None:
+def _extract_interrupt(result: dict[str, Any] | None, snapshot: Any) -> dict[str, Any] | None:
+    def _as_payload(value: Any) -> dict[str, Any]:
+        return value if isinstance(value, dict) else {"value": value}
+
     if isinstance(result, dict):
         interrupts = result.get("__interrupt__")
         if interrupts:
-            return interrupts[0].value
+            return _as_payload(interrupts[0].value)
     for task in getattr(snapshot, "tasks", ()) or ():
         interrupts = getattr(task, "interrupts", None)
         if interrupts:
-            return interrupts[0].value
+            return _as_payload(interrupts[0].value)
     return None
 
 
 async def _stream_events(
-    graph: CompiledStateGraph,
+    graph: CompiledGraph,
     state: AgentState,
-    config: dict,
+    config: dict[str, Any],
     thread_id: str,
-):
+) -> AsyncGenerator[str, None]:
     interrupted = False
     try:
         async for event in graph.astream_events(
@@ -211,9 +230,9 @@ async def _stream_events(
 @router.post("")
 async def chat(
     request: ChatRequest,
-    graph: CompiledStateGraph = Depends(get_graph),
+    graph: CompiledGraph = Depends(get_graph),
     _auth: str = Depends(require_api_key),
-):
+) -> StreamingResponse | dict[str, Any]:
     if not request.thread_id:
         request.thread_id = str(uuid.uuid4())
     thread_id = request.thread_id
@@ -230,7 +249,7 @@ async def chat(
     }
 
     history = await memory_manager.get_conversation(thread_id)
-    history_messages = []
+    history_messages: list[BaseMessage] = []
     for m in history:
         role = m.get("role", "user")
         content = m.get("content", "")
@@ -330,9 +349,9 @@ async def chat(
 @router.post("/approve")
 async def approve_action(
     request: ApprovalRequest,
-    graph: CompiledStateGraph = Depends(get_graph),
+    graph: CompiledGraph = Depends(get_graph),
     _auth: str = Depends(require_api_key),
-):
+) -> dict[str, Any]:
     config = {
         "configurable": {"thread_id": request.thread_id},
         "recursion_limit": _recursion_limit(),
@@ -362,7 +381,7 @@ async def approve_action(
 @router.get("/pending")
 async def list_pending_approvals(
     _auth: str = Depends(require_api_key),
-):
+) -> list[dict[str, Any]]:
     from app.core.threads import list_pending_approvals as _list
 
     results = await _list(include_expired=True)
