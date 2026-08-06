@@ -26,7 +26,7 @@ class MemoryManager:
     async def get_redis(self) -> redis.Redis:
         return await self._get_redis()
 
-    async def close(self):
+    async def close(self) -> None:
         if self._redis is not None:
             await self._redis.aclose()
             self._redis = None
@@ -38,7 +38,7 @@ class MemoryManager:
         content: str,
         trust_score: float = 1.0,
         ttl: int = 86400,
-    ):
+    ) -> None:
         if not isinstance(role, str) or not isinstance(content, str):
             raise ValueError(f"Invalid message format: role={type(role)}, content={type(content)}")
         r = await self._get_redis()
@@ -65,7 +65,7 @@ class MemoryManager:
                 continue
         return result
 
-    async def clear_conversation(self, thread_id: str):
+    async def clear_conversation(self, thread_id: str) -> None:
         r = await self._get_redis()
         await r.delete(f"conversation:{thread_id}")
 

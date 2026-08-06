@@ -5,6 +5,7 @@ import logging
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from app.core.text import content_to_str
 from app.services.llm import get_llm
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ def create_plan(query: str) -> list[str]:
         response = llm.invoke(messages)
 
         try:
-            plan = json.loads(response.content.strip())
+            plan = json.loads(content_to_str(response.content).strip())
             if isinstance(plan, list) and all(isinstance(s, str) for s in plan):
                 return plan[:5]
         except (json.JSONDecodeError, ValueError, TypeError):

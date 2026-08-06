@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from app.core.text import content_to_str
 from app.services.llm import get_llm
 
 
@@ -29,7 +30,7 @@ def reason_with_evidence(
 
     try:
         response = get_llm(temperature=0.2, max_tokens=2048).invoke(messages)
-        content = response.content
+        content = content_to_str(response.content)
     except Exception:
         return (
             "I was unable to generate a response because the reasoning model is "

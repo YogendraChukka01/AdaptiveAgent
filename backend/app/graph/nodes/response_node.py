@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from app.core.config import settings
 from app.models.state import AgentState
 
@@ -36,7 +38,7 @@ def _is_refusal(text: str) -> bool:
     return any(p in lowered for p in _REFUSAL_PATTERNS)
 
 
-def response_node(state: AgentState) -> dict:
+def response_node(state: AgentState) -> dict[str, Any]:
     response = state.final_response
 
     if not response and state.evidence_coverage < settings.evidence_min_coverage:

@@ -4,6 +4,7 @@ import logging
 
 from langchain_core.messages import HumanMessage
 
+from app.core.text import content_to_str
 from app.models.state import AgentState
 from app.services.llm import get_llm
 
@@ -27,7 +28,7 @@ def _refine_query(query: str, attempt: int, evidence_missing: list[str]) -> str:
             "or split it into sub-questions. Return only the rewritten query.\n"
             f"Original: {query}"
         )
-        out = llm.invoke([HumanMessage(content=prompt)]).content.strip()
+        out = content_to_str(llm.invoke([HumanMessage(content=prompt)]).content).strip()
         if out:
             return out
     except Exception:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Any
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
@@ -27,7 +28,7 @@ class ChromaVectorStore(BaseVectorStore):
         ids: list[str],
         embeddings: list[list[float]],
         documents: list[str],
-        metadatas: list[dict] | None = None,
+        metadatas: list[dict[str, Any]] | None = None,
     ) -> None:
         collection = self.get_or_create_collection()
         collection.add(
@@ -41,17 +42,18 @@ class ChromaVectorStore(BaseVectorStore):
         self,
         query_embedding: list[float],
         n_results: int = 20,
-        where: dict | None = None,
-    ) -> dict:
+        where: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         collection = self.get_or_create_collection()
-        kwargs: dict = {
+        kwargs: dict[str, Any] = {
             "query_embeddings": [query_embedding],
             "n_results": n_results,
             "include": ["documents", "metadatas", "distances"],
         }
         if where is not None:
             kwargs["where"] = where
-        return collection.query(**kwargs)
+        result = collection.query(**kwargs)
+        return result if isinstance(result, dict) else {}
 
     def delete(self, ids: list[str]) -> None:
         collection = self.get_or_create_collection()
@@ -59,9 +61,10 @@ class ChromaVectorStore(BaseVectorStore):
 
     def count(self) -> int:
         collection = self.get_or_create_collection()
-        return collection.count()
+        result = collection.count()
+        return result if isinstance(result, int) else 0
 
-    def get_or_create_collection(self, name: str | None = None) -> object:
+    def get_or_create_collection(self, name: str | None = None) -> Any:
         collection_name = name or self.config.collection_name
         try:
             return self._client.get_collection(collection_name)
@@ -85,11 +88,11 @@ def _get_legacy_store() -> ChromaVectorStore:
 
 
 @lru_cache(maxsize=1)
-def get_chroma_client() -> chromadb.PersistentClient:
+def get_chroma_client() -> Any:
     return _get_legacy_store()._client
 
 
-def get_or_create_collection(name: str = "safeagent_docs"):
+def get_or_create_collection(name: str = "safeagent_docs") -> Any:
     store = _get_legacy_store()
     return store.get_or_create_collection(name)
 
@@ -99,7 +102,7 @@ def add_documents(
     ids: list[str],
     embeddings: list[list[float]],
     documents: list[str],
-    metadatas: list[dict] | None = None,
+    metadatas: list[dict[str, Any]] | None = None,
 ) -> None:
     store = _get_legacy_store()
     collection = store.get_or_create_collection(collection_name)
@@ -115,18 +118,19 @@ def query_similar(
     collection_name: str,
     query_embedding: list[float],
     n_results: int = 20,
-    where: dict | None = None,
-) -> dict:
+    where: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     store = _get_legacy_store()
     collection = store.get_or_create_collection(collection_name)
-    kwargs: dict = {
+    kwargs: dict[str, Any] = {
         "query_embeddings": [query_embedding],
         "n_results": n_results,
         "include": ["documents", "metadatas", "distances"],
     }
     if where is not None:
         kwargs["where"] = where
-    return collection.query(**kwargs)
+    result = collection.query(**kwargs)
+    return result if isinstance(result, dict) else {}
 
 
 def get_vector_store_config() -> VectorStoreConfig:

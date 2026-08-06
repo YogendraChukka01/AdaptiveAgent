@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from app.core.config import settings
 
@@ -106,7 +107,7 @@ def _extract_key_terms(text: str) -> set[str]:
 
 
 def _compute_contradictions(
-    documents: list[dict],
+    documents: list[dict[str, Any]],
     threshold: float,
 ) -> list[str]:
     contradictions: list[str] = []
@@ -146,7 +147,7 @@ def _compute_contradictions(
     return contradictions
 
 
-def _score_credibility(documents: list[dict]) -> float:
+def _score_credibility(documents: list[dict[str, Any]]) -> float:
     if not documents:
         return 0.0
     credible_sources = {"arxiv", "pubmed", "wikipedia", "gov", "edu", "nature", "science"}
@@ -166,9 +167,9 @@ def _score_credibility(documents: list[dict]) -> float:
 
 def verify_evidence(
     query: str,
-    documents: list[dict],
+    documents: list[dict[str, Any]],
     confidence_threshold: float | None = None,
-) -> dict:
+) -> dict[str, Any]:
     threshold = (
         confidence_threshold if confidence_threshold is not None else settings.evidence_threshold
     )

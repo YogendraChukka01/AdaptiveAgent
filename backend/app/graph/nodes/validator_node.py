@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from app.core.text import content_to_str
+from typing import Any
+
 from app.models.state import AgentState
 from app.services.validator.validator import validate_query
 
 
-def query_validator(state: AgentState) -> dict:
-    query = state.messages[-1].content if state.messages else state.query
+def query_validator(state: AgentState) -> dict[str, Any]:
+    query = content_to_str(state.messages[-1].content) if state.messages else state.query
 
     result = validate_query(query)
 

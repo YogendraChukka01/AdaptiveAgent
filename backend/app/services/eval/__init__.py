@@ -71,11 +71,14 @@ class RagasEvaluator:
             base_embedder = get_embedder()
 
             class _Wrapper:
-                def embed_documents(self, texts):
-                    return base_embedder.encode(texts).tolist()
+                def embed_documents(self, texts: list[str]) -> list[list[float]]:
+                    embeddings = base_embedder.encode(texts)
+                    return embeddings.tolist() if hasattr(embeddings, "tolist") else list(embeddings)
 
-                def embed_query(self, text):
-                    return base_embedder.encode([text])[0].tolist()
+                def embed_query(self, text: str) -> list[float]:
+                    embeddings = base_embedder.encode([text])
+                    vector = embeddings[0]
+                    return vector.tolist() if hasattr(vector, "tolist") else list(vector)
 
             self._embeddings = LangchainEmbeddingsWrapper(_Wrapper())
             return self._embeddings

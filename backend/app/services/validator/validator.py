@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import re
 import threading
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -21,7 +22,7 @@ _engine = None
 _engine_lock = threading.Lock()
 
 
-def _get_engine():
+def _get_engine() -> Any:
     global _engine
     if _engine is None:
         with _engine_lock:
@@ -38,13 +39,13 @@ def _get_engine():
     return _engine if _engine is not False else None
 
 
-PII_PATTERNS: list[re.Pattern] = [
+PII_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
     re.compile(r"\b\d{16}\b"),
     re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
 ]
 
-SQL_INJECTION_PATTERNS: list[re.Pattern] = [
+SQL_INJECTION_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"\bUNION\s+(?:ALL\s+)?SELECT\b", re.IGNORECASE),
     re.compile(r"\b(?:DROP|TRUNCATE)\s+TABLE\b", re.IGNORECASE),
     re.compile(r"\bDELETE\s+FROM\b", re.IGNORECASE),

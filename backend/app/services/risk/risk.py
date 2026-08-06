@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from app.models.state import ToolCallRecord
 
 RISK_WEIGHTS: dict[str, float] = {
@@ -16,7 +18,9 @@ RISK_WEIGHTS: dict[str, float] = {
 }
 
 
-def assess_risk(tool_calls: list[ToolCallRecord], plan: list[str]) -> tuple[float, str, dict]:
+def assess_risk(
+    tool_calls: list[ToolCallRecord], plan: list[str]
+) -> tuple[float, str, dict[str, Any]]:
     factors: dict[str, float] = {}
 
     for call in tool_calls:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 from collections import OrderedDict
 from functools import lru_cache
+from typing import Any
 
 import torch
 from FlagEmbedding import FlagModel
@@ -11,7 +12,7 @@ from app.core.config import settings
 
 
 @lru_cache(maxsize=1)
-def get_embedder() -> object:
+def get_embedder() -> Any:
     """Build the configured embedding backend.
 
     - provider "bge"  -> FlagEmbedding BGE-M3 (default, fp16).
@@ -41,7 +42,7 @@ def get_embedder() -> object:
     )
 
 
-_EMBED_CACHE: OrderedDict[tuple[str, ...], list[float]] = OrderedDict()
+_EMBED_CACHE: OrderedDict[tuple[str, ...], list[list[float]]] = OrderedDict()
 _EMBED_CACHE_MAX = 2048
 _EMBED_CACHE_LOCK = threading.Lock()
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from app.models.state import AgentState
 from app.services.reasoning.reasoning import reason_with_evidence
@@ -8,7 +9,7 @@ from app.services.reasoning.reasoning import reason_with_evidence
 logger = logging.getLogger(__name__)
 
 
-def reasoning_node(state: AgentState) -> dict:
+def reasoning_node(state: AgentState) -> dict[str, Any]:
     try:
         query = state.sanitized_query or state.query
         answer, reasoning_parts = reason_with_evidence(query, state.retrieved_docs)

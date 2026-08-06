@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from app.models.state import AgentState
 from app.services.confidence.confidence import calculate_confidence
@@ -8,7 +9,7 @@ from app.services.confidence.confidence import calculate_confidence
 logger = logging.getLogger(__name__)
 
 
-def confidence_node(state: AgentState) -> dict:
+def confidence_node(state: AgentState) -> dict[str, Any]:
     try:
         score, factors = calculate_confidence(
             retrieval_scores=state.retrieval_scores,

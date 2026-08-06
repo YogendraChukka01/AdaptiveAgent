@@ -6,6 +6,8 @@ import logging
 import os
 import uuid
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
 from app.core.auth import require_api_key
@@ -78,7 +80,7 @@ def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str
 async def upload_document(
     file: UploadFile,
     _auth: str = Depends(require_api_key),
-):
+) -> dict[str, Any]:
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
 

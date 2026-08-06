@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from app.core.text import content_to_str
 from app.models.state import AgentState, ToolCallRecord
 from app.services.tools.tool_registry import AVAILABLE_TOOLS
 
@@ -35,7 +37,7 @@ def plan_tool_calls(query: str, plan: list[str]) -> list[ToolCallRecord]:
         )
 
         try:
-            parsed = json.loads(response.content.strip())
+            parsed = json.loads(content_to_str(response.content).strip())
         except (json.JSONDecodeError, ValueError):
             return []
 
@@ -65,7 +67,7 @@ def plan_tool_calls(query: str, plan: list[str]) -> list[ToolCallRecord]:
         return []
 
 
-def tool_planner_node(state: AgentState) -> dict:
+def tool_planner_node(state: AgentState) -> dict[str, Any]:
     query = state.sanitized_query or state.query
     if not query.strip():
         return {"tool_calls": []}

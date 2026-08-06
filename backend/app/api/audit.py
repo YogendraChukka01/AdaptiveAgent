@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 
@@ -16,7 +18,7 @@ async def get_audit_logs(
     offset: int = 0,
     thread_id: str | None = None,
     _auth: str = Depends(require_api_key),
-):
+) -> list[dict[str, Any]]:
     limit = max(1, min(limit, 200))
     offset = max(0, offset)
 

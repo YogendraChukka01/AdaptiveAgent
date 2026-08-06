@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -32,8 +34,13 @@ from app.graph.nodes.tools_node import tools_node
 from app.graph.nodes.validator_node import query_validator
 from app.models.state import AgentState
 
+# LangGraph's ``CompiledStateGraph`` is generic over four parameters
+# (state schema, context schema, input schema, output schema). In this
+# app only the state schema is concrete; the rest are unchecked ``Any``.
+CompiledGraph = CompiledStateGraph[AgentState, Any, Any, Any]
 
-def build_graph(checkpointer: AsyncPostgresSaver | None = None) -> CompiledStateGraph:
+
+def build_graph(checkpointer: AsyncPostgresSaver | None = None) -> CompiledGraph:
     builder = StateGraph(AgentState)
 
     builder.add_node("step_counter", step_counter)

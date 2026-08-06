@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any, cast
 
 from langchain_core.language_models import BaseChatModel
 
@@ -47,44 +48,56 @@ def _build_langchain_llm(
     if provider == "openai":
         from langchain_openai import ChatOpenAI
 
-        return ChatOpenAI(
-            model=model,
-            api_key=api_key,
-            base_url=base_url,
-            temperature=temperature,
-            max_tokens=max_tokens,
+        return cast(
+            BaseChatModel,
+            ChatOpenAI(
+                model=model,
+                api_key=api_key,
+                base_url=base_url,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            ),
         )
 
     if provider == "anthropic":
         from langchain_anthropic import ChatAnthropic
 
-        return ChatAnthropic(
-            model=model,
-            api_key=api_key,
-            base_url=base_url,
-            temperature=temperature,
-            max_tokens=max_tokens,
+        return cast(
+            BaseChatModel,
+            ChatAnthropic(
+                model=model,
+                api_key=api_key,
+                base_url=base_url,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            ),
         )
 
     if provider == "google":
         from langchain_google_genai import ChatGoogleGenerativeAI
 
-        return ChatGoogleGenerativeAI(
-            model=model,
-            api_key=api_key,
-            temperature=temperature,
-            max_tokens=max_tokens,
+        return cast(
+            BaseChatModel,
+            ChatGoogleGenerativeAI(
+                model=model,
+                api_key=api_key,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            ),
         )
 
     if provider == "groq":
         from langchain_groq import ChatGroq
 
-        return ChatGroq(
-            model=model,
-            api_key=api_key,
-            base_url=base_url,
-            temperature=temperature,
-            max_tokens=max_tokens,
+        return cast(
+            BaseChatModel,
+            ChatGroq(
+                model=model,
+                api_key=api_key,
+                base_url=base_url,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            ),
         )
 
     msg = f"Unknown llm_provider '{provider}'. Supported: ollama, openai, anthropic, google, groq"
@@ -116,7 +129,7 @@ def _build_router_llm(
     - Transparent fallback: ollama → cloud model
     """
     from langchain_litellm import ChatLiteLLMRouter
-    from litellm import Router
+    from litellm import Router  # type: ignore[attr-defined]
 
     provider = settings.llm_provider.lower()
     model = settings.llm_model
@@ -176,7 +189,7 @@ def _build_router_llm(
         cooldown_time=60,
     )
 
-    kwargs: dict = {
+    kwargs: dict[str, Any] = {
         "router": router,
         "model": "chat",
         "temperature": temperature,

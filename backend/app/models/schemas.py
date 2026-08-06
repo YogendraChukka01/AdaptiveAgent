@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -16,7 +18,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
-    citations: list[dict] = Field(default_factory=list)
+    citations: list[dict[str, Any]] = Field(default_factory=list)
     confidence_score: float = 0.0
     risk_score: float = 0.0
     risk_level: str = "low"

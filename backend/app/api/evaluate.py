@@ -29,7 +29,7 @@ class EvalResponse(BaseModel):
 async def evaluate_rag(
     request: EvalRequest,
     _auth: str = Depends(require_api_key),
-):
+) -> EvalResponse:
     """Evaluate a RAG response using Ragas framework.
 
     Metrics:

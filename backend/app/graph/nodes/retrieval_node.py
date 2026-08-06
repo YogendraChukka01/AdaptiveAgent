@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from app.models.state import AgentState
 from app.services.retrieval.embeddings.embedder import embed_query
@@ -9,7 +10,7 @@ from app.services.retrieval.hybrid_search import hybrid_search
 logger = logging.getLogger(__name__)
 
 
-def retrieval_node(state: AgentState) -> dict:
+def retrieval_node(state: AgentState) -> dict[str, Any]:
     query = state.sanitized_query or state.query
 
     if not query.strip():

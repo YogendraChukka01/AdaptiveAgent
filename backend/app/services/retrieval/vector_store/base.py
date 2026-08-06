@@ -40,7 +40,7 @@ class BaseVectorStore(ABC):
         ids: list[str],
         embeddings: list[list[float]],
         documents: list[str],
-        metadatas: list[dict] | None = None,
+        metadatas: list[dict[str, Any]] | None = None,
     ) -> None:
         """Add documents with pre-computed embeddings."""
 
@@ -49,8 +49,8 @@ class BaseVectorStore(ABC):
         self,
         query_embedding: list[float],
         n_results: int = 20,
-        where: dict | None = None,
-    ) -> dict:
+        where: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Query similar documents. Returns dict with documents, metadatas, distances."""
 
     @abstractmethod

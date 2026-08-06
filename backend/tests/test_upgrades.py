@@ -551,7 +551,7 @@ def _patch_nodes(monkeypatch, tool_names, reason_answer="The answer is 42."):
     )
     monkeypatch.setattr(reas_node, "reason_with_evidence", lambda q, d: (reason_answer, ["step1"]))
 
-    def _execute_tool(n, a):
+    async def _execute_tool(n, a):
         return ToolCallRecord(tool=n, input=str(a), output="ok", success=True, duration_ms=1.0)
 
     monkeypatch.setattr(tool_node, "execute_tool", _execute_tool)

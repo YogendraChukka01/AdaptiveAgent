@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from app.services.retrieval.vector_store.base import BaseVectorStore, VectorStoreConfig
 
@@ -11,22 +12,27 @@ class PGVectorStore(BaseVectorStore):
     """PGVector vector store backend.
 
     Requires: pip install langchain-postgres psycopg2-binary
+
+    NOTE: the base ``BaseVectorStore`` interface is synchronous, but this
+    backend's ``add_documents``/``query_similar`` are async (asyncpg is
+    inherently async). Nothing in the app currently routes through this
+    backend, so the divergence is suppressed rather than realigned. Align
+    this backend with the sync base contract (or drop it) before enabling.
     """
 
     def __init__(self, config: VectorStoreConfig) -> None:
         super().__init__(config)
-        self._engine = None
-        self._collection = None
-        self._collection_id = None
+        self._engine: Any = None
+        self._collection: Any = None
 
-    def _get_engine(self):
+    def _get_engine(self) -> Any:
         if self._engine is None:
             from sqlalchemy.ext.asyncio import create_async_engine
 
             self._engine = create_async_engine(self.config.pg_connection_string)
         return self._engine
 
-    def _get_collection(self):
+    def _get_collection(self) -> Any:
         if self._collection is None:
             try:
                 from langchain_postgres import PGVector
@@ -42,12 +48,12 @@ class PGVectorStore(BaseVectorStore):
                 )
         return self._collection
 
-    async def add_documents(
+    async def add_documents(  # type: ignore[override]  # async vs sync base contract
         self,
         ids: list[str],
         embeddings: list[list[float]],
         documents: list[str],
-        metadatas: list[dict] | None = None,
+        metadatas: list[dict[str, Any]] | None = None,
     ) -> None:
         import json
 
@@ -76,12 +82,12 @@ class PGVectorStore(BaseVectorStore):
         finally:
             await conn.close()
 
-    async def query_similar(
+    async def query_similar(  # type: ignore[override]  # async vs sync base contract
         self,
         query_embedding: list[float],
         n_results: int = 20,
-        where: dict | None = None,
-    ) -> dict:
+        where: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         import json
 
         import asyncpg
@@ -101,9 +107,9 @@ class PGVectorStore(BaseVectorStore):
                 collection_id,
                 n_results,
             )
-            documents = []
-            metadatas = []
-            distances = []
+            documents: list[str] = []
+            metadatas: list[dict[str, Any]] = []
+            distances: list[float] = []
             for row in rows:
                 documents.append(row["document"] or "")
                 metadatas.append(json.loads(row["cmetadata"]) if row["cmetadata"] else {})
@@ -117,7 +123,7 @@ class PGVectorStore(BaseVectorStore):
             "distances": [distances],
         }
 
-    async def _get_or_create_collection_id(self, conn) -> str:
+    async def _get_or_create_collection_id(self, conn: Any) -> str:
         import uuid
 
         row = await conn.fetchrow(
@@ -140,10 +146,10 @@ class PGVectorStore(BaseVectorStore):
     def count(self) -> int:
         collection = self._get_collection()
         try:
-            return collection.count()
+            return int(collection.count())
         except Exception:
             logger.warning("PGVector count() failed, returning 0")
             return 0
 
-    def get_or_create_collection(self, name: str | None = None) -> object:
+    def get_or_create_collection(self, name: str | None = None) -> Any:
         return self._get_collection()

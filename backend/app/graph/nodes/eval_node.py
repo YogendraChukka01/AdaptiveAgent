@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from app.core.config import settings
 from app.models.state import AgentState
@@ -8,7 +9,7 @@ from app.models.state import AgentState
 logger = logging.getLogger(__name__)
 
 
-def _heuristic_score(response: str, query: str, evidence: list) -> tuple[float, dict]:
+def _heuristic_score(response: str, query: str, evidence: list[Any]) -> tuple[float, dict[str, float]]:
     """Fast deterministic scoring without LLM calls."""
     scores: list[float] = []
 
@@ -69,7 +70,7 @@ def _heuristic_score(response: str, query: str, evidence: list) -> tuple[float, 
     return combined, details
 
 
-def _ragas_faithfulness(query: str, evidence: list, response: str) -> float | None:
+def _ragas_faithfulness(query: str, evidence: list[Any], response: str) -> float | None:
     """Ragas-style faithfulness: extract claims, verify each against context.
 
     Returns faithfulness score (supported_claims / total_claims) or None
@@ -123,7 +124,7 @@ def _judge_relevancy(query: str, response: str) -> float | None:
         return None
 
 
-def _judge_faithfulness(query: str, evidence: list, response: str) -> float | None:
+def _judge_faithfulness(query: str, evidence: list[Any], response: str) -> float | None:
     """Simple LLM-as-judge faithfulness (single-pass). Returns score or None."""
     if not settings.eval_judge_model:
         return None
@@ -143,7 +144,7 @@ def _judge_faithfulness(query: str, evidence: list, response: str) -> float | No
         return None
 
 
-def eval_node(state: AgentState) -> dict:
+def eval_node(state: AgentState) -> dict[str, Any]:
     """Evaluate response quality using heuristic + LLM-as-judge.
 
     Scoring pipeline:

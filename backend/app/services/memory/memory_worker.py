@@ -4,8 +4,10 @@ import asyncio
 import json
 import logging
 from datetime import datetime, timezone
+from typing import Any
 
 from app.core.config import settings
+from app.core.text import content_to_str
 from app.services.llm import get_llm
 
 logger = logging.getLogger(__name__)
@@ -22,9 +24,9 @@ class MemoryDistiller:
     """
 
     def __init__(self) -> None:
-        self._task: asyncio.Task | None = None
-        self._collection = None
-        self._chroma_client = None
+        self._task: asyncio.Task[Any] | None = None
+        self._collection: Any = None
+        self._chroma_client: Any = None
         self._running = False
         self._chroma_unavailable = False
 
@@ -33,7 +35,7 @@ class MemoryDistiller:
         if self._collection is not None or self._chroma_unavailable:
             return
 
-        def _init():
+        def _init() -> None:
             import chromadb
 
             self._chroma_client = chromadb.PersistentClient(
@@ -138,7 +140,7 @@ class MemoryDistiller:
             try:
                 from langchain_core.messages import HumanMessage
 
-                def _call_llm():
+                def _call_llm() -> Any:
                     llm = get_llm(temperature=0.0, max_tokens=512)
                     conversation = "\n".join(messages[-20:])
                     prompt = (
@@ -150,10 +152,10 @@ class MemoryDistiller:
                         f"Conversation:\n{conversation}\n\n"
                         'Return JSON array of fact strings, e.g. ["fact 1", "fact 2"]'
                     )
-                    return llm.invoke([HumanMessage(content=prompt)])  # type: ignore[union-attr]
+                    return llm.invoke([HumanMessage(content=prompt)])
 
                 response = await asyncio.wait_for(asyncio.to_thread(_call_llm), timeout=120)
-                content = response.content.strip()  # type: ignore[union-attr]
+                content = content_to_str(response.content).strip()
                 content = content.strip("`").strip()
                 if content.startswith("json\n"):
                     content = content[5:]
@@ -161,8 +163,10 @@ class MemoryDistiller:
 
                 match = re.search(r"\[.*\]", content, re.DOTALL)
                 if match:
-                    return json.loads(match.group())
-                return json.loads(content)
+                    parsed = json.loads(match.group())
+                    return parsed if isinstance(parsed, list) else []
+                parsed = json.loads(content)
+                return parsed if isinstance(parsed, list) else []
             except Exception:
                 logger.debug("Fact extraction failed")
                 return []

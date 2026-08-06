@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -33,7 +34,7 @@ def _configure_tracing() -> None:
     os.environ["LANGCHAIN_PROJECT"] = settings.langsmith_project
 
 
-async def _expire_pending_approvals_loop():
+async def _expire_pending_approvals_loop() -> None:
     """Periodically reject approval threads that exceeded the TTL."""
     while True:
         try:
@@ -46,7 +47,7 @@ async def _expire_pending_approvals_loop():
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     _configure_tracing()
     await init_db()
     await init_graph()

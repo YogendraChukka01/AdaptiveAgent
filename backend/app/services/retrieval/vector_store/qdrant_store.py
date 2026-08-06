@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from app.services.retrieval.vector_store.base import BaseVectorStore, VectorStoreConfig
 
@@ -18,7 +19,7 @@ class QdrantVectorStore(BaseVectorStore):
         self._client = None
         self._collection = None
 
-    def _get_client(self):
+    def _get_client(self) -> Any:
         if self._client is None:
             try:
                 from qdrant_client import QdrantClient
@@ -34,7 +35,7 @@ class QdrantVectorStore(BaseVectorStore):
                 )
         return self._client
 
-    def _get_collection(self):
+    def _get_collection(self) -> Any:
         if self._collection is None:
             try:
                 from langchain_core.embeddings import Embeddings
@@ -43,10 +44,10 @@ class QdrantVectorStore(BaseVectorStore):
                 client = self._get_client()
 
                 class _PassthroughEmbedder(Embeddings):
-                    def embed_documents(self, texts):
+                    def embed_documents(self, texts: list[str]) -> list[list[float]]:
                         return [[] for _ in texts]
 
-                    def embed_query(self, text):
+                    def embed_query(self, text: str) -> list[float]:
                         return []
 
                 self._collection = QdrantVectorStore(
@@ -66,7 +67,7 @@ class QdrantVectorStore(BaseVectorStore):
         ids: list[str],
         embeddings: list[list[float]],
         documents: list[str],
-        metadatas: list[dict] | None = None,
+        metadatas: list[dict[str, Any]] | None = None,
     ) -> None:
         from qdrant_client.models import PointStruct
 
@@ -91,8 +92,8 @@ class QdrantVectorStore(BaseVectorStore):
         self,
         query_embedding: list[float],
         n_results: int = 20,
-        where: dict | None = None,
-    ) -> dict:
+        where: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         client = self._get_client()
         results = client.search(
             collection_name=self.config.collection_name,
@@ -123,5 +124,5 @@ class QdrantVectorStore(BaseVectorStore):
         collection_info = self._get_client().get_collection(self.config.collection_name)
         return collection_info.points_count or 0
 
-    def get_or_create_collection(self, name: str | None = None) -> object:
+    def get_or_create_collection(self, name: str | None = None) -> Any:
         return self._get_collection()

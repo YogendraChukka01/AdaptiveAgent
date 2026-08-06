@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Any
 
 from FlagEmbedding import FlagReranker
 
@@ -8,7 +9,7 @@ from app.core.config import settings
 
 
 @lru_cache(maxsize=1)
-def get_reranker():
+def get_reranker() -> Any:
     """Build the configured reranker backend.
 
     - provider "bge" -> FlagEmbedding BGE reranker (default).

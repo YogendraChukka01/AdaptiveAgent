@@ -34,7 +34,7 @@ async def close_health_client() -> None:
 
 
 @router.get("/health", response_model=HealthResponse)
-async def health_check():
+async def health_check() -> HealthResponse | JSONResponse:
     ollama_ok = False
     chroma_ok = False
     db_ok = False

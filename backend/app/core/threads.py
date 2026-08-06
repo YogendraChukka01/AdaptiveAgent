@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 _PENDING_KEY = "safeagent:pending_approvals"
 
 
-async def _redis():
+async def _redis() -> Any:
     try:
         return await memory_manager.get_redis()
     except Exception as e:  # Redis unavailable - degrade, never block approvals.

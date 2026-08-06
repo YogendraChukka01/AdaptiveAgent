@@ -5,7 +5,7 @@ def calculate_confidence(
     retrieval_scores: list[float],
     evidence_coverage: float,
     num_supporting_docs: int,
-) -> tuple[float, dict]:
+) -> tuple[float, dict[str, float]]:
     factors: dict[str, float] = {}
 
     if retrieval_scores:

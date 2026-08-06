@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from app.services.retrieval.vector_store.base import BaseVectorStore, VectorStoreConfig
 
@@ -18,7 +19,7 @@ class PineconeVectorStore(BaseVectorStore):
         self._index = None
         self._collection = None
 
-    def _get_index(self):
+    def _get_index(self) -> Any:
         if self._index is None:
             try:
                 from pinecone import Pinecone
@@ -32,17 +33,17 @@ class PineconeVectorStore(BaseVectorStore):
                 )
         return self._index
 
-    def _get_collection(self):
+    def _get_collection(self) -> Any:
         if self._collection is None:
             try:
                 from langchain_core.embeddings import Embeddings
                 from langchain_pinecone import PineconeVectorStore
 
                 class _PassthroughEmbedder(Embeddings):
-                    def embed_documents(self, texts):
+                    def embed_documents(self, texts: list[str]) -> list[list[float]]:
                         return [[] for _ in texts]
 
-                    def embed_query(self, text):
+                    def embed_query(self, text: str) -> list[float]:
                         return []
 
                 self._collection = PineconeVectorStore(
@@ -62,7 +63,7 @@ class PineconeVectorStore(BaseVectorStore):
         ids: list[str],
         embeddings: list[list[float]],
         documents: list[str],
-        metadatas: list[dict] | None = None,
+        metadatas: list[dict[str, Any]] | None = None,
     ) -> None:
         vectors = []
         for i, (doc_id, embedding, doc) in enumerate(zip(ids, embeddings, documents)):
@@ -74,9 +75,9 @@ class PineconeVectorStore(BaseVectorStore):
         self,
         query_embedding: list[float],
         n_results: int = 20,
-        where: dict | None = None,
-    ) -> dict:
-        query_kwargs: dict = {
+        where: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        query_kwargs: dict[str, Any] = {
             "vector": query_embedding,
             "top_k": n_results,
             "include_metadata": True,
@@ -108,7 +109,7 @@ class PineconeVectorStore(BaseVectorStore):
     def count(self) -> int:
         stats = self._get_index().describe_index_stats()
         namespace_stats = stats.get("namespaces", {}).get(self.config.collection_name, {})
-        return namespace_stats.get("vector_count", 0)
+        return int(namespace_stats.get("vector_count", 0))
 
-    def get_or_create_collection(self, name: str | None = None) -> object:
+    def get_or_create_collection(self, name: str | None = None) -> Any:
         return self._get_collection()

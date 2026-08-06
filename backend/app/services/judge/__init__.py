@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 import logging
 import re
+from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.core.config import settings
+from app.core.text import content_to_str
 from app.services.llm import get_llm
 
 logger = logging.getLogger(__name__)
@@ -64,7 +66,7 @@ def _truncate(text: str, max_chars: int) -> str:
     return text[:max_chars] + "..."
 
 
-def _parse_json_array(text: str) -> list:
+def _parse_json_array(text: str) -> list[Any]:
     """Extract a JSON array from LLM output, handling markdown fences."""
     text = text.strip().strip("`").strip()
     if text.startswith("json\n"):
@@ -116,8 +118,8 @@ def score_faithfulness(query: str, context: str, response: str) -> float:
             )
         )
 
-        resp = llm.invoke([_JUDGE_SYSTEM, user_msg])  # type: ignore[union-attr]
-        text = resp.content.strip()  # type: ignore[union-attr]
+        resp = llm.invoke([_JUDGE_SYSTEM, user_msg])
+        text = content_to_str(resp.content).strip()
 
         score = _parse_score(text)
         return score if score is not None else 0.0
@@ -142,14 +144,14 @@ def extract_claims(response: str) -> list[str]:
                 "Extract every factual claim as a JSON array of short strings."
             )
         )
-        resp = llm.invoke([_CLAIM_SYSTEM, user_msg])  # type: ignore[union-attr]
-        return _parse_json_array(resp.content)  # type: ignore[union-attr]
+        resp = llm.invoke([_CLAIM_SYSTEM, user_msg])
+        return _parse_json_array(content_to_str(resp.content))
     except Exception:
         logger.debug("Claim extraction failed")
         return []
 
 
-def verify_claims(context: str, claims: list[str]) -> list[dict]:
+def verify_claims(context: str, claims: list[str]) -> list[dict[str, Any]]:
     """Verify claims against context using NLI.
 
     Returns list of {"claim": str, "verdict": 0|1} dicts.
@@ -168,8 +170,8 @@ def verify_claims(context: str, claims: list[str]) -> list[dict]:
                 "For each claim, return verdict 1 (SUPPORTED) or 0 (NOT SUPPORTED)."
             )
         )
-        resp = llm.invoke([_NLI_SYSTEM, user_msg])  # type: ignore[union-attr]
-        results = _parse_json_array(resp.content)  # type: ignore[union-attr]
+        resp = llm.invoke([_NLI_SYSTEM, user_msg])
+        results = _parse_json_array(content_to_str(resp.content))
         verified = []
         for item in results:
             if isinstance(item, dict) and "claim" in item and "verdict" in item:
@@ -203,8 +205,8 @@ def score_relevancy(query: str, response: str) -> float | None:
                 "1.0 = perfectly addresses the query):"
             )
         )
-        resp = llm.invoke([_RELEVANCY_SYSTEM, user_msg])  # type: ignore[union-attr]
-        text = resp.content.strip()  # type: ignore[union-attr]
+        resp = llm.invoke([_RELEVANCY_SYSTEM, user_msg])
+        text = content_to_str(resp.content).strip()
         score = _parse_score(text)
         return score if score is not None else None
     except Exception:

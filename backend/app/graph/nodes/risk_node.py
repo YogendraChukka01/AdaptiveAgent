@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from app.models.state import AgentState
 from app.services.risk.risk import assess_risk
@@ -8,7 +9,7 @@ from app.services.risk.risk import assess_risk
 logger = logging.getLogger(__name__)
 
 
-def risk_node(state: AgentState) -> dict:
+def risk_node(state: AgentState) -> dict[str, Any]:
     try:
         score, level, factors = assess_risk(
             tool_calls=state.tool_calls,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
 
@@ -13,7 +15,7 @@ def hybrid_search(
     collection_name: str = "safeagent_docs",
     dense_k: int = 20,
     final_k: int = 5,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     chroma_results = query_similar(
         collection_name=collection_name,
         query_embedding=query_embedding,
