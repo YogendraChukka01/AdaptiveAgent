@@ -1,4 +1,5 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
 
 export interface ChatMessage {
   id?: string;
@@ -49,7 +50,10 @@ export async function* streamChat(
 ): AsyncGenerator<StreamEvent, void> {
   const response = await fetch(`${API_BASE}/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
+    },
     body: JSON.stringify({
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
       thread_id: threadId,
@@ -232,7 +236,10 @@ export async function approveAction(
 ): Promise<ChatResult> {
   const response = await fetch(`${API_BASE}/chat/approve`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
+    },
     body: JSON.stringify({ thread_id: threadId, action }),
     signal,
   });
@@ -265,6 +272,9 @@ export async function uploadDocument(
 
   const response = await fetch(`${API_BASE}/upload`, {
     method: "POST",
+    headers: {
+      ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
+    },
     body: formData,
     signal,
   });

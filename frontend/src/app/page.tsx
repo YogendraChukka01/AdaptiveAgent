@@ -28,6 +28,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [threadId] = useState(generateId);
   const [lastResult, setLastResult] = useState<ChatResult | null>(null);
+  const lastResultRef = useRef<ChatResult | null>(null);
   const [showPanel, setShowPanel] = useState(false);
   const [approval, setApproval] = useState<ApprovalPayload | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -49,6 +50,7 @@ export default function Home() {
   }, []);
 
   const applyResult = useCallback((result: ChatResult) => {
+    lastResultRef.current = result;
     setLastResult(result);
     setMessages((prev) => {
       if (prev.length === 0) return prev;
@@ -99,7 +101,7 @@ export default function Home() {
           setApproval(ev.payload);
         }
       }
-      if (fullResponse && !lastResult) {
+      if (fullResponse && !lastResultRef.current) {
         applyResult({ response: fullResponse, citations: [], confidence_score: 0, risk_level: "low", risk_score: 0, reasoning_path: [], step_count: 0 } as ChatResult);
       }
     } catch (err) {

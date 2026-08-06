@@ -7,7 +7,25 @@ This is the ordered, actionable work list for the remaining hardening. Each step
 
 ---
 
-## Step 1 — Close out the 18 remaining mypy errors (backend, type-only)
+## Step 1 — Close out the remaining mypy errors (backend, type-only)
+
+**Progress (2026-08-06):** 18 → **8 errors** applied and pushed. Done in this pass:
+`state.py:36`, `memory.py:14/73`, `reasoning.py:11`, `memory_worker.py:180`,
+`judge/__init__.py:83`, `refine_node.py:45`, `deps.py` (pool annotation).
+
+**Remaining — only in `backend/app/api/chat.py`:** the `_stream_events` helper still
+types its `config` parameter as `dict[str, Any]`, while the LangGraph stubs expect
+`RunnableConfig` (the two call-site `config` dicts are already annotated). Errors at
+`chat.py:142, 176, 275, 362, 373` all stem from this one line:
+
+```python
+async def _stream_events(
+    graph: CompiledGraph,
+    state: AgentState,
+    config: dict[str, Any],        # <- change to: config: RunnableConfig
+    thread_id: str,
+) -> AsyncGenerator[str, None]:
+```
 
 All are type-only (no runtime behaviour change). After each file, re-run:
 `.venv/Scripts/python -m mypy app --ignore-missing-imports`
@@ -29,6 +47,8 @@ All are type-only (no runtime behaviour change). After each file, re-run:
 ---
 
 ## Step 2 — Frontend fixes
+
+**Progress (2026-08-06):** both applied and pushed. ✅
 
 ### 2a. `frontend/src/app/page.tsx:122` — React hooks warning
 

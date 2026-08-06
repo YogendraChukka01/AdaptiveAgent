@@ -177,7 +177,7 @@ class MemoryDistiller:
             return
         now = datetime.now(timezone.utc).isoformat()
 
-        def _delete_and_upsert():
+        def _delete_and_upsert() -> None:
             self._collection.delete(where={"thread_id": thread_id})
             for i, fact in enumerate(facts):
                 self._collection.upsert(

@@ -80,7 +80,9 @@ def _parse_json_array(text: str) -> list[Any]:
     match = re.search(r"\[.*\]", text, re.DOTALL)
     if match:
         try:
-            return json.loads(match.group())
+            parsed = json.loads(match.group())
+            if isinstance(parsed, list):
+                return parsed
         except json.JSONDecodeError:
             pass
     return []

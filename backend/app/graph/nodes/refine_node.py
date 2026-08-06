@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from langchain_core.messages import HumanMessage
 
@@ -42,7 +43,7 @@ def _refine_query(query: str, attempt: int, evidence_missing: list[str]) -> str:
     return f"{query} {suffixes[attempt % len(suffixes)]}"
 
 
-def refine_node(state: AgentState) -> dict:
+def refine_node(state: AgentState) -> dict[str, Any]:
     retry_count = state.retry_count + 1
     base = state.sanitized_query or state.query
     refined = _refine_query(base, retry_count, state.evidence_missing)

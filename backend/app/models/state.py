@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
@@ -33,7 +33,7 @@ class AgentState(BaseModel):
 
     plan: list[str] = Field(default_factory=list)
 
-    retrieved_docs: list[dict] = Field(default_factory=list)
+    retrieved_docs: list[dict[str, Any]] = Field(default_factory=list)
     retrieval_scores: list[float] = Field(default_factory=list)
 
     evidence_coverage: float = 0.0

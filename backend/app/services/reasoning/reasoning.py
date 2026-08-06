@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.core.text import content_to_str
@@ -8,7 +10,7 @@ from app.services.llm import get_llm
 
 def reason_with_evidence(
     query: str,
-    documents: list[dict],
+    documents: list[dict[str, Any]],
 ) -> tuple[str, list[str]]:
     context = "\n\n".join(
         f"[Source: {d.get('source', 'unknown')}]\n{d.get('content', '')}" for d in documents

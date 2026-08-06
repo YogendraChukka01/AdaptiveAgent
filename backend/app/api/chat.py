@@ -12,17 +12,18 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from langchain_core.runnables import RunnableConfig
 from langgraph.errors import GraphInterrupt
 from langgraph.types import Command
 
 from app.core.auth import require_api_key
 from app.core.config import settings
 from app.core.deps import get_graph
-from app.graph.builder import CompiledGraph
 from app.core.threads import (
     clear_pending_approval,
     track_pending_approval,
 )
+from app.graph.builder import CompiledGraph
 from app.models.schemas import ApprovalRequest, ChatRequest
 from app.models.state import AgentState
 from app.services.audit.audit import record_audit
@@ -243,7 +244,7 @@ async def chat(
     last_msg = request.messages[-1]
     last_message = last_msg.content
 
-    config = {
+    config: RunnableConfig = {
         "configurable": {"thread_id": thread_id},
         "recursion_limit": _recursion_limit(),
     }

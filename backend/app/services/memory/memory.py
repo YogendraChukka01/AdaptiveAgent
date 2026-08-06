@@ -11,7 +11,7 @@ from app.core.config import settings
 
 
 class MemoryManager:
-    def __init__(self):
+    def __init__(self) -> None:
         self._redis: redis.Redis | None = None
         self._lock = asyncio.Lock()
 

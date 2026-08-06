@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncGenerator
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from psycopg_pool import AsyncConnectionPool
@@ -38,13 +38,14 @@ async def init_graph() -> CompiledGraph:
     async with _init_lock:
         if _graph is not None:
             return _graph
-        _pool = AsyncConnectionPool(
+        pool: AsyncConnectionPool[Any] = AsyncConnectionPool(
             conninfo=settings.database_url.replace("+asyncpg", ""),
             min_size=2,
             max_size=10,
             open=True,
             timeout=30,
         )
+        _pool = pool
         serde = _build_serde()
         # ``AsyncPostgresSaver`` accepts the pool as the positional ``conn``
         # argument (it is not a ``pool`` keyword).
