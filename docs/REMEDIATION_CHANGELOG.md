@@ -111,6 +111,7 @@ If you are referring to a different `.d` file you saw, tell me the path and I'll
 ## 6. Next Steps (remaining / not yet done)
 
 > Editing stopped on request. These are documented, **not** applied.
+> **Detailed ordered work list:** [`docs/NEXT_STEPS.md`](./NEXT_STEPS.md) — Step 1 (mypy), Step 2 (frontend), Step 3 (security), Step 4 (infra), Step 5 (docs), Step 6 (final verification), with exact file:line fixes and commit grouping.
 
 ### 6.1 Remaining mypy errors (fresh run, 2026-08-06: **18 errors**; down from 191 baseline)
 
