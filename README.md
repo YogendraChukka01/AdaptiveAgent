@@ -1,37 +1,250 @@
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.11%2B-blue?style=flat"/>
+  <img src="https://img.shields.io/badge/Next.js-15-black?style=flat"/>
+  <img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat"/>
+  <img src="https://img.shields.io/github/actions/workflow/status/YogendraChukka01/AdaptiveAgent/ci.yml?label=CI&style=flat"/>
+  <img src="https://img.shields.io/badge/tests-94%20passed-brightgreen?style=flat"/>
+</p>
+
 # AdaptiveAgent
 
-![CI](https://github.com/YogendraChukka01/AdaptiveAgent/actions/workflows/ci.yml/badge.svg)
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)
-![Next.js](https://img.shields.io/badge/Next.js-15-black)
-![Tests](https://img.shields.io/badge/tests-94%20passed-brightgreen)
+> A production-grade, secure, and explainable **Agentic RAG platform** for building context-aware assistants on private knowledge bases.
 
-**AdaptiveAgent** is a production-grade, secure, and explainable **Agentic RAG** platform for building context-aware assistants on private knowledge bases. It combines a LangGraph-orchestrated reasoning pipeline with a Next.js frontend, multi-vector store support, LLM-as-judge evaluation, and automatic cloud fallback — all in a Docker-based local stack.
+---
+
+## Project Snapshot
+
+```
+┌──────────────────────────────────────────────────────┐
+│ 🤖 AdaptiveAgent                                     │
+│                                                      │
+│ Agentic RAG platform for private knowledge bases     │
+│                                                      │
+│ AI        Full Stack       Data         DevOps      │
+│ LangGraph  Next.js 15     PostgreSQL     Docker       │
+│ LLM Judge  FastAPI         Chroma/PG    GitHub CI   │
+│                                                  │
+│ Status: Production-Grade   License: MIT            │
+└──────────────────────────────────────────────────────┘
+```
+
+---
+
+## The Problem
+
+Enterprise knowledge bases require privacy, explainability, and multi-LLM flexibility — but most RAG platforms lock you into a single cloud provider, expose your data externally, and provide no visibility into how answers are generated.
+
+```
+PROBLEM
+
+Knowledge bases are scattered, answers are opaque,
+and cloud-only RAG platforms leak private data.
+
+        ↓
+
+SOLUTION
+
+A local-first Agentic RAG platform with a 14-node
+reasoning pipeline, multi-vector stores, LLM-as-judge
+evaluation, and automatic cloud fallback — all in Docker.
+```
+
+---
+
+## How It Works
+
+```
+INPUT
+  ↓           User query
+  ↓
+PIPELINE      14-node LangGraph pipeline:
+  ↓          step_counter → validator → planner →
+  ↓          tool_planner → retrieval → evidence →
+  ↓          reasoning → confidence → risk →
+  ↓          approval → tools → response → eval
+  ↓
+AI / LOGIC    LLM (Ollama primary, OpenAI/Anthropic/Gemini/Groq fallback)
+  ↓           LLM-as-judge post-evaluation with refine loop
+STORAGE       PostgreSQL (checkpoints) · Chroma/PGVector/Qdrant/Pinecone (embeddings) · Redis (cache)
+  ↓
+OUTPUT        Streamed response with confidence + risk scores
+```
+
+---
+
+## Architecture Diagram
+
+```mermaid
+flowchart LR
+    subgraph User["User / Client"]
+        FE["Next.js 15<br/>Frontend"]
+    end
+
+    FE -->|"SSE stream"| API["FastAPI<br/>Backend API"]
+    API -->|"LangGraph state"| Graph["Graph Builder"]
+
+    subgraph Pipeline["LangGraph Pipeline (14 nodes)"]
+        SC["step_counter"]
+        VAL["validator"]
+        PLAN["planner"]
+        TP["tool_planner"]
+        RET["retrieval"]
+        EVID["evidence"]
+        REASON["reasoning"]
+        CONF["confidence"]
+        RISK["risk"]
+        APPR["approval"]
+        TOOLS["tools"]
+        REF["refine"]
+        RESP["response"]
+        EVAL["eval<br/>(LLM-as-judge)"]
+    end
+
+    subgraph Stores["Storage & Services"]
+        PG["PostgreSQL<br/>Checkpoints"]
+        VS["Vector Store<br/>(Chroma/PGVector/Qdrant/Pinecone)"]
+        RD["Redis<br/>Cache"]
+        OLL["Ollama<br/>Local LLM"]
+        LLM["Cloud LLMs<br/>OpenAI · Anthropic · Google · Groq"]
+    end
+
+    API --> SC
+    SC --> VAL
+    VAL -->|valid| PLAN
+    VAL -->|needs tools| TP
+    PLAN --> TP
+    TP --> RET
+    RET --> EVID
+    EVID --> REASON
+    REASON --> CONF
+    CONF --> RISK
+    RISK --> APPR
+    APPR --> TOOLS
+    TOOLS --> REF
+    REF --> RET
+    APPR --> RESP
+    RESP --> EVAL
+    EVAL -->|quality OK| OUT["Response"]
+    EVAL -->|quality low| REF
+
+    %% Storage connections
+    SC --- PG
+    RET --- VS
+    RET --- RD
+    RET --- OLL
+    RESP --- LLM
+
+    OUT --> FE
+
+    style FE fill:#79c0ff,color:#0d1117
+    style API fill:#0d1117,color:#79c0ff
+    style Pipeline fill:#1e293b,color:#ffffff
+    style Stores fill:#0d1117,color:#7c3aed
+    style OUT fill:#79c0ff,color:#0d1117
+```
+
+---
+
+## Tech Stack
+
+### AI / ML
+LangGraph · LangChain · litellm · LLM-as-Judge · RAG · Embeddings (bge-m3) · Reranker (bge-reranker) · BM25 · Ragas
+
+### AI Infrastructure
+Ollama (local) · OpenAI · Anthropic · Google · Groq (cloud fallback) · ChromaDB · PGVector · Qdrant · Pinecone · PostgreSQL · Redis · Docker Compose
+
+### Frontend
+Next.js 15 · React 19 · TypeScript · Tailwind CSS · SSE Streaming
+
+### Backend
+FastAPI · Python 3.11+ · Pydantic · SQLAlchemy (async) · Alembic · Uvicorn · API Key Auth · Rate Limiting
+
+### Engineering
+Git · GitHub Actions (CI) · pytest (94 tests) · Ruff · mypy (strict) · Pre-commit · Docker
+
+---
+
+## Key Features
+
+- **14-node LangGraph pipeline** with conditional routing and retry circuit-breaker (max 10 steps)
+- **Multi-vector store support** — Chroma (default), PostgreSQL/PGVector, Qdrant, Pinecone
+- **Multi-provider LLM** — Ollama local-first with automatic cloud fallback to OpenAI, Anthropic, Google, Groq
+- **LLM-as-judge evaluation** — post-generation scoring with refine loop for quality control
+- **Multi-LLM fallback** — LiteLLM router for seamless provider switching
+- **Secure & private** — API key authentication, no data leaves local Docker stack
+- **Explainable** — per-node visibility into scoring, confidence, and risk assessment
+- **Production-ready** — Docker Compose, CI/CD, 94 tests, monitoring (Prometheus + Grafana)
+
+---
+
+## Getting Started
+
+### Quick Start — Docker (Recommended)
+
+```bash
+git clone https://github.com/YogendraChukka01/AdaptiveAgent.git
+cd AdaptiveAgent
+cp backend/.env.example backend/.env
+cd infra && docker compose up -d --build
+```
+
+Wait ~2 minutes for models to download, then open:
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:3000 |
+| API Docs | http://localhost:8000/docs |
+| Health Check | http://localhost:8000/health |
+
+### Local Development
+
+```bash
+# 1. Clone
+git clone https://github.com/YogendraChukka01/AdaptiveAgent.git
+cd AdaptiveAgent
+
+# 2. One-command setup
+bash scripts/setup.sh        # macOS / Linux
+.\scripts\setup.ps1           # Windows
+
+# 3. Start services
+docker compose -f infra/docker-compose.yml up postgres redis ollama -d
+
+# 4. Backend (Terminal 1)
+cd backend && source .venv/bin/activate
+uvicorn app.main:app --reload
+
+# 5. Frontend (Terminal 2)
+cd frontend && npm run dev
+```
+
+### Prerequisites
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| Python | 3.11+ | Backend runtime |
+| Node.js | 20+ | Frontend build |
+| Docker | 24+ | Services (Postgres, Redis, Ollama) |
+| Docker Compose | v2+ | Container orchestration |
 
 ---
 
 ## Table of Contents
 
-- [Quick Start](#quick-start)
-  - [Docker Setup (Recommended)](#docker-setup-recommended)
-  - [Local Development Setup](#local-development-setup)
-- [Prerequisites](#prerequisites)
+- [Project Snapshot](#project-snapshot)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Features](#key-features)
+- [Getting Started](#getting-started)
 - [Platform-Specific Setup](#platform-specific-setup)
-  - [Windows](#windows)
-  - [macOS](#macos)
-  - [Linux (Ubuntu/Debian)](#linux-ubuntudebian)
 - [Verify Installation](#verify-installation)
 - [Development](#development)
-- [Architecture](#architecture)
 - [Configuration](#configuration)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
+- [Project Structure](#project-structure)
 - [Contributing](#contributing)
 - [License](#license)
-
----
-
-## Quick Start
 
 ### Docker Setup (Recommended)
 
@@ -426,3 +639,19 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+---
+
+<h3 align="center">
+
+```
+Built by Yogi
+
+  Build.  Learn.  Ship.  Iterate.
+```
+
+</h3>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/—%20AI%20×%20Software%20×%20Product%20×%20Open%20Source-0d1117?style=for-the-badge&labelColor=0d1117&color=7c3aed"/>
+</p>
