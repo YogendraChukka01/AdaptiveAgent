@@ -9,7 +9,11 @@ from app.models.state import AgentState
 logger = logging.getLogger(__name__)
 
 
-def _heuristic_score(response: str, query: str, evidence: list[Any]) -> tuple[float, dict[str, float]]:
+def _heuristic_score(
+    response: str,
+    query: str,
+    evidence: list[Any],
+) -> tuple[float, dict[str, float]]:
     """Fast deterministic scoring without LLM calls."""
     scores: list[float] = []
 
