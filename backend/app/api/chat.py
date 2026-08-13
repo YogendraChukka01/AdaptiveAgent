@@ -68,8 +68,7 @@ def _build_result(values: dict[str, Any], thread_id: str) -> dict[str, Any]:
         "thread_id": thread_id,
         "response": values.get("final_response", ""),
         "citations": [
-            c.model_dump() if hasattr(c, "model_dump") else c
-            for c in values.get("citations", [])
+            c.model_dump() if hasattr(c, "model_dump") else c for c in values.get("citations", [])
         ],
         "confidence_score": values.get("confidence_score", 0.0),
         "risk_score": values.get("risk_score", 0.0),
@@ -114,14 +113,10 @@ async def _save_turn(
                 "args": tc.get("args"),
                 "result": tc.get("result"),
             }
-            await memory_manager.store_conversation(
-                session_id, "tool", json.dumps(entry)
-            )
+            await memory_manager.store_conversation(session_id, "tool", json.dumps(entry))
 
 
-def _extract_interrupt(
-    result: dict[str, Any] | None, snapshot: Any
-) -> dict[str, Any] | None:
+def _extract_interrupt(result: dict[str, Any] | None, snapshot: Any) -> dict[str, Any] | None:
     def _as_payload(value: Any) -> dict[str, Any]:
         return value if isinstance(value, dict) else {"value": value}
 
@@ -200,8 +195,7 @@ async def _stream_events(
     response_text = values.get("final_response", "")
     if response_text:
         tool_calls_data = [
-            t.model_dump() if hasattr(t, "model_dump") else t
-            for t in values.get("tool_calls", [])
+            t.model_dump() if hasattr(t, "model_dump") else t for t in values.get("tool_calls", [])
         ]
         await _save_turn(thread_id, "user", state.query or "")
         await _save_turn(thread_id, "assistant", response_text, tool_calls_data)
@@ -224,9 +218,7 @@ async def _stream_events(
                 for c in values.get("citations", [])
             ],
             "execution_time_ms": (
-                int((time.time() - state.start_time) * 1000)
-                if state.start_time is not None
-                else 0
+                int((time.time() - state.start_time) * 1000) if state.start_time is not None else 0
             ),
             "step_count": values.get("step_count", 0),
         }
@@ -323,8 +315,7 @@ async def chat(
     await memory_manager.store_conversation(thread_id, "user", last_message)
     resp = values.get("final_response", "")
     tool_calls_data = [
-        t.model_dump() if hasattr(t, "model_dump") else t
-        for t in values.get("tool_calls", [])
+        t.model_dump() if hasattr(t, "model_dump") else t for t in values.get("tool_calls", [])
     ]
     await _save_turn(thread_id, "assistant", resp, tool_calls_data)
 
@@ -346,9 +337,7 @@ async def chat(
                 for c in values.get("citations", [])
             ],
             "execution_time_ms": (
-                int((time.time() - state.start_time) * 1000)
-                if state.start_time is not None
-                else 0
+                int((time.time() - state.start_time) * 1000) if state.start_time is not None else 0
             ),
             "step_count": values.get("step_count", 0),
         }
@@ -397,6 +386,5 @@ async def list_pending_approvals(
 
     results = await _list(include_expired=True)
     return [
-        {k: v for k, v in entry.items() if k not in ("age_seconds", "expired")}
-        for entry in results
+        {k: v for k, v in entry.items() if k not in ("age_seconds", "expired")} for entry in results
     ]
