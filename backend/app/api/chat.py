@@ -33,7 +33,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-
 def _recursion_limit() -> int:
     """Safely bound graph execution.
 
@@ -45,7 +44,6 @@ def _recursion_limit() -> int:
     ``step_count`` circuit breaker can stop the loop. The 50 default fails that.
     """
     return max(50, settings.max_steps * 15)
-
 
 def _unwrap(result: Any) -> dict[str, Any]:
     """Normalise a LangGraph invoke result into a plain state dict.
@@ -60,7 +58,6 @@ def _unwrap(result: Any) -> dict[str, Any]:
         if isinstance(dump, dict):
             return dump
     return {}
-
 
 def _build_result(values: dict[str, Any], thread_id: str) -> dict[str, Any]:
     return {
@@ -80,7 +77,6 @@ def _build_result(values: dict[str, Any], thread_id: str) -> dict[str, Any]:
         "approval_status": values.get("approval_status", "completed"),
     }
 
-
 def _build_approval_payload(
     values: dict[str, Any], thread_id: str, inter_value: dict[str, Any] | None
 ) -> dict[str, Any]:
@@ -95,7 +91,6 @@ def _build_approval_payload(
         "pending_tools": inter_value.get("pending_tools", []),
         "triggering_factors": inter_value.get("triggering_factors", []),
     }
-
 
 async def _save_turn(
     session_id: str,
@@ -115,7 +110,6 @@ async def _save_turn(
             }
             await memory_manager.store_conversation(session_id, "tool", json.dumps(entry))
 
-
 def _extract_interrupt(result: dict[str, Any] | None, snapshot: Any) -> dict[str, Any] | None:
     def _as_payload(value: Any) -> dict[str, Any]:
         return value if isinstance(value, dict) else {"value": value}
@@ -129,7 +123,6 @@ def _extract_interrupt(result: dict[str, Any] | None, snapshot: Any) -> dict[str
         if interrupts:
             return _as_payload(interrupts[0].value)
     return None
-
 
 async def _stream_events(
     graph: CompiledGraph,
@@ -225,7 +218,6 @@ async def _stream_events(
     )
 
     yield "event: done\ndata: [DONE]\n\n"
-
 
 @router.post("")
 async def chat(
@@ -344,7 +336,6 @@ async def chat(
 
     return _build_result(values, thread_id)
 
-
 @router.post("/approve")
 async def approve_action(
     request: ApprovalRequest,
@@ -375,7 +366,6 @@ async def approve_action(
     values = snapshot.values
 
     return _build_result(values, request.thread_id)
-
 
 @router.get("/pending")
 async def list_pending_approvals(
