@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
+
 def _recursion_limit() -> int:
     """Safely bound graph execution.
 
@@ -44,6 +45,7 @@ def _recursion_limit() -> int:
     ``step_count`` circuit breaker can stop the loop. The 50 default fails that.
     """
     return max(50, settings.max_steps * 15)
+
 
 def _unwrap(result: Any) -> dict[str, Any]:
     """Normalise a LangGraph invoke result into a plain state dict.
@@ -59,13 +61,15 @@ def _unwrap(result: Any) -> dict[str, Any]:
             return dump
     return {}
 
+
 def _build_result(values: dict[str, Any], thread_id: str) -> dict[str, Any]:
     return {
         "needs_approval": False,
         "thread_id": thread_id,
         "response": values.get("final_response", ""),
         "citations": [
-            c.model_dump() if hasattr(c, "model_dump") else c for c in values.get("citations", [])
+            c.model_dump() if hasattr(c, "model_dump") else c
+            for c in values.get("citations", [])
         ],
         "confidence_score": values.get("confidence_score", 0.0),
         "risk_score": values.get("risk_score", 0.0),
@@ -76,6 +80,7 @@ def _build_result(values: dict[str, Any], thread_id: str) -> dict[str, Any]:
         "step_count": values.get("step_count", 0),
         "approval_status": values.get("approval_status", "completed"),
     }
+
 
 def _build_approval_payload(
     values: dict[str, Any], thread_id: str, inter_value: dict[str, Any] | None
@@ -91,6 +96,7 @@ def _build_approval_payload(
         "pending_tools": inter_value.get("pending_tools", []),
         "triggering_factors": inter_value.get("triggering_factors", []),
     }
+
 
 async def _save_turn(
     session_id: str,
@@ -108,9 +114,14 @@ async def _save_turn(
                 "args": tc.get("args"),
                 "result": tc.get("result"),
             }
-            await memory_manager.store_conversation(session_id, "tool", json.dumps(entry))
+            await memory_manager.store_conversation(
+                session_id, "tool", json.dumps(entry)
+            )
 
-def _extract_interrupt(result: dict[str, Any] | None, snapshot: Any) -> dict[str, Any] | None:
+
+def _extract_interrupt(
+    result: dict[str, Any] | None, snapshot: Any
+) -> dict[str, Any] | None:
     def _as_payload(value: Any) -> dict[str, Any]:
         return value if isinstance(value, dict) else {"value": value}
 
@@ -123,6 +134,7 @@ def _extract_interrupt(result: dict[str, Any] | None, snapshot: Any) -> dict[str
         if interrupts:
             return _as_payload(interrupts[0].value)
     return None
+
 
 async def _stream_events(
     graph: CompiledGraph,
@@ -188,7 +200,8 @@ async def _stream_events(
     response_text = values.get("final_response", "")
     if response_text:
         tool_calls_data = [
-            t.model_dump() if hasattr(t, "model_dump") else t for t in values.get("tool_calls", [])
+            t.model_dump() if hasattr(t, "model_dump") else t
+            for t in values.get("tool_calls", [])
         ]
         await _save_turn(thread_id, "user", state.query or "")
         await _save_turn(thread_id, "assistant", response_text, tool_calls_data)
@@ -211,13 +224,16 @@ async def _stream_events(
                 for c in values.get("citations", [])
             ],
             "execution_time_ms": (
-                int((time.time() - state.start_time) * 1000) if state.start_time is not None else 0
+                int((time.time() - state.start_time) * 1000)
+                if state.start_time is not None
+                else 0
             ),
             "step_count": values.get("step_count", 0),
         }
     )
 
     yield "event: done\ndata: [DONE]\n\n"
+
 
 @router.post("")
 async def chat(
@@ -249,6 +265,7 @@ async def chat(
             history_messages.append(AIMessage(content=content))
         elif role == "system":
             from langchain_core.messages import SystemMessage
+
             history_messages.append(SystemMessage(content=content))
         else:
             history_messages.append(HumanMessage(content=content))
@@ -306,7 +323,8 @@ async def chat(
     await memory_manager.store_conversation(thread_id, "user", last_message)
     resp = values.get("final_response", "")
     tool_calls_data = [
-        t.model_dump() if hasattr(t, "model_dump") else t for t in values.get("tool_calls", [])
+        t.model_dump() if hasattr(t, "model_dump") else t
+        for t in values.get("tool_calls", [])
     ]
     await _save_turn(thread_id, "assistant", resp, tool_calls_data)
 
@@ -328,13 +346,16 @@ async def chat(
                 for c in values.get("citations", [])
             ],
             "execution_time_ms": (
-                int((time.time() - state.start_time) * 1000) if state.start_time is not None else 0
+                int((time.time() - state.start_time) * 1000)
+                if state.start_time is not None
+                else 0
             ),
             "step_count": values.get("step_count", 0),
         }
     )
 
     return _build_result(values, thread_id)
+
 
 @router.post("/approve")
 async def approve_action(
@@ -367,6 +388,7 @@ async def approve_action(
 
     return _build_result(values, request.thread_id)
 
+
 @router.get("/pending")
 async def list_pending_approvals(
     _auth: str = Depends(require_api_key),
@@ -375,5 +397,6 @@ async def list_pending_approvals(
 
     results = await _list(include_expired=True)
     return [
-        {k: v for k, v in entry.items() if k not in ("age_seconds", "expired")} for entry in results
+        {k: v for k, v in entry.items() if k not in ("age_seconds", "expired")}
+        for entry in results
     ]
