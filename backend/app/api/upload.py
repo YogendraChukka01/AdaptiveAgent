@@ -5,7 +5,6 @@ import io as _io
 import logging
 import os
 import uuid
-
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
