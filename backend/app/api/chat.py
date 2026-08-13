@@ -139,7 +139,7 @@ async def _stream_events(
 ) -> AsyncGenerator[str, None]:
     interrupted = False
     try:
-        async for event in graph.astream_events(
+        async for event in graph.astream_events(  # type: ignore[call-overload]
             state,
             config=config,
             version="v2",
@@ -173,7 +173,7 @@ async def _stream_events(
         yield "event: done\ndata: [DONE]\n\n"
         return
 
-    snapshot = await graph.aget_state(config)
+    snapshot = await graph.aget_state(config)  # type: ignore[arg-type]
 
     if interrupted or snapshot.next:
         inter_value = _extract_interrupt(None, snapshot)
@@ -272,7 +272,7 @@ async def chat(
 
     if request.stream:
         return StreamingResponse(
-            _stream_events(graph, state, config, thread_id),
+            _stream_events(graph, state, config, thread_id),  # type: ignore[arg-type]
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
@@ -284,7 +284,7 @@ async def chat(
     try:
         result = await graph.ainvoke(state, config=config)
     except GraphInterrupt:
-        snapshot = await graph.aget_state(config)
+        snapshot = await graph.aget_state(config)  # type: ignore[arg-type]
         inter_value = _extract_interrupt(None, snapshot)
         values = snapshot.values
         payload = _build_approval_payload(values, thread_id, inter_value)
@@ -301,7 +301,7 @@ async def chat(
     values = _unwrap(result)
 
     if isinstance(result, dict) and result.get("__interrupt__"):
-        snapshot = await graph.aget_state(config)
+        snapshot = await graph.aget_state(config)  # type: ignore[arg-type]
         inter_value = _extract_interrupt(result, snapshot)
         payload = _build_approval_payload(values, thread_id, inter_value)
         await track_pending_approval(
@@ -358,7 +358,7 @@ async def approve_action(
     }
 
     try:
-        await graph.ainvoke(
+        await graph.ainvoke(  # type: ignore[call-overload]
             Command(resume={"approved": request.action == "approve"}),
             config=config,
         )
@@ -369,7 +369,7 @@ async def approve_action(
     await clear_pending_approval(request.thread_id)
 
     try:
-        snapshot = await graph.aget_state(config)
+        snapshot = await graph.aget_state(config)  # type: ignore[arg-type]
     except Exception:
         logger.exception("Failed to get state for thread %s", request.thread_id)
         raise HTTPException(status_code=404, detail="Thread not found or expired")
