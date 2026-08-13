@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from app.core.text import content_to_str
 from typing import Any
 
+from app.core.text import content_to_str
 from app.models.state import AgentState
 from app.services.validator.validator import validate_query
 
