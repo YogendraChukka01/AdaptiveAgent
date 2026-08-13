@@ -284,7 +284,7 @@ async def chat(
     try:
         result = await graph.ainvoke(state, config=config)
     except GraphInterrupt:
-        snapshot = await graph.aget_state(config)  # type: ignore[arg-type]
+        snapshot = await graph.aget_state(config)
         inter_value = _extract_interrupt(None, snapshot)
         values = snapshot.values
         payload = _build_approval_payload(values, thread_id, inter_value)
@@ -301,7 +301,7 @@ async def chat(
     values = _unwrap(result)
 
     if isinstance(result, dict) and result.get("__interrupt__"):
-        snapshot = await graph.aget_state(config)  # type: ignore[arg-type]
+        snapshot = await graph.aget_state(config)
         inter_value = _extract_interrupt(result, snapshot)
         payload = _build_approval_payload(values, thread_id, inter_value)
         await track_pending_approval(
