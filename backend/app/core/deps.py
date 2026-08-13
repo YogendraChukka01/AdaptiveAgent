@@ -49,7 +49,7 @@ async def init_graph() -> CompiledGraph:
         serde = _build_serde()
         # ``AsyncPostgresSaver`` accepts the pool as the positional ``conn``
         # argument (it is not a ``pool`` keyword).
-        checkpointer = AsyncPostgresSaver(_pool, serde=serde)
+        checkpointer = AsyncPostgresSaver(_pool, serde=serde)  # type: ignore[arg-type]
         await checkpointer.setup()
         _graph = build_graph(checkpointer=checkpointer)
         return _graph
