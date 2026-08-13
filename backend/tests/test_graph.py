@@ -74,7 +74,7 @@ def test_refine_node_rewrites_query(monkeypatch):
     out = refine_node(state)
 
     assert out["retry_count"] == 1
-    assert out["step_count"] == 4  # circuit breaker keeps counting
+    assert out["step_count"] == 3  # step_counter increments at graph entry
     assert out["sanitized_query"] == "rewritten query"
     assert out["refined_query"] == "rewritten query"
 
