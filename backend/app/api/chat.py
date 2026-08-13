@@ -195,8 +195,7 @@ async def _stream_events(
     response_text = values.get("final_response", "")
     if response_text:
         tool_calls_data = [
-            t.model_dump() if hasattr(t, "model_dump") else t
-            for t in values.get("tool_calls", [])
+            t.model_dump() if hasattr(t, "model_dump") else t for t in values.get("tool_calls", [])
         ]
         await _save_turn(thread_id, "user", state.query or "")
         await _save_turn(thread_id, "assistant", response_text, tool_calls_data)
@@ -315,8 +314,7 @@ async def chat(
     await memory_manager.store_conversation(thread_id, "user", last_message)
     resp = values.get("final_response", "")
     tool_calls_data = [
-        t.model_dump() if hasattr(t, "model_dump") else t
-        for t in values.get("tool_calls", [])
+        t.model_dump() if hasattr(t, "model_dump") else t for t in values.get("tool_calls", [])
     ]
     await _save_turn(thread_id, "assistant", resp, tool_calls_data)
 
