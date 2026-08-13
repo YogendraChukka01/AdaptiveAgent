@@ -45,8 +45,7 @@ def _is_refusal(text: str) -> bool:
 def _generate_fallback_response(query: str, docs: list[dict[str, Any]]) -> str:
     """Generate a response using LLM when reasoning node didn't produce one."""
     context = "\n\n".join(
-        f"[Source: {d.get('source', 'unknown')}]\n{d.get('content', '')[:500]}"
-        for d in docs[:5]
+        f"[Source: {d.get('source', 'unknown')}]\n{d.get('content', '')[:500]}" for d in docs[:5]
     )
     messages = [
         SystemMessage(
