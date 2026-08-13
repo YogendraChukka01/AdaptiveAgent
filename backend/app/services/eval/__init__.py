@@ -74,7 +74,7 @@ class RagasEvaluator:
                 def embed_documents(self, texts: list[str]) -> list[list[float]]:
                     embeddings = base_embedder.encode(texts)
                     if hasattr(embeddings, "tolist"):
-                        return embeddings.tolist()
+                        return embeddings.tolist()  # type: ignore[no-any-return]
                     return list(embeddings)
 
                 def embed_query(self, text: str) -> list[float]:
