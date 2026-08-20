@@ -1,5 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
+import { getSettings, buildApiUrl } from "./settings";
 
 export interface ChatMessage {
   id?: string;
@@ -43,17 +42,29 @@ export type StreamEvent =
   | { type: "needs_approval"; payload: ApprovalPayload }
   | { type: "error"; message: string };
 
+function getApiHeaders(): Record<string, string> {
+  const settings = getSettings();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (settings.apiKey) headers["X-API-Key"] = settings.apiKey;
+  return headers;
+}
+
+function getApiBase(): string {
+  const settings = getSettings();
+  return settings.apiBaseUrl || "http://localhost:8000";
+}
+
 export async function* streamChat(
   messages: ChatMessage[],
   threadId: string,
   signal?: AbortSignal,
 ): AsyncGenerator<StreamEvent, void> {
-  const response = await fetch(`${API_BASE}/chat`, {
+  const baseUrl = getApiBase();
+  const url = buildApiUrl(baseUrl, "/chat");
+
+  const response = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
-    },
+    headers: getApiHeaders(),
     body: JSON.stringify({
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
       thread_id: threadId,
@@ -98,7 +109,7 @@ export async function* streamChat(
         }, timeoutMs);
       });
 
-      const result = await Promise.race([readPromise, timeoutPromise]) as {
+      const result = (await Promise.race([readPromise, timeoutPromise])) as {
         done: boolean;
         value: Uint8Array;
       };
@@ -106,9 +117,7 @@ export async function* streamChat(
       if (done) {
         if (buffer.trim()) {
           for (const line of processBlock(buffer.trim())) {
-            if (line.type === "error") {
-              throw new Error(line.message);
-            }
+            if (line.type === "error") throw new Error(line.message);
             yield line;
           }
         }
@@ -121,9 +130,7 @@ export async function* streamChat(
 
       for (const block of blocks) {
         for (const evt of processBlock(block)) {
-          if (evt.type === "error") {
-            throw new Error(evt.message);
-          }
+          if (evt.type === "error") throw new Error(evt.message);
           yield evt;
         }
       }
@@ -143,8 +150,6 @@ function extractSSEData(block: string, eventPrefix: string): string | null {
       eventType = line.slice(7).trim();
     } else if (line.startsWith("data: ")) {
       dataLines.push(line.slice(6));
-    } else if (line.startsWith("id:") || line.startsWith("retry:") || line.startsWith(":")) {
-      continue;
     }
   }
 
@@ -202,8 +207,6 @@ function processBlock(block: string): StreamEvent[] {
             triggering_factors: data.triggering_factors ?? [],
           },
         });
-      } else {
-        console.warn("Invalid approval payload, skipping:", approvalData.slice(0, 100));
       }
       return events;
     }
@@ -214,16 +217,11 @@ function processBlock(block: string): StreamEvent[] {
       events.push({ type: "error", message: data.error || "Stream error from server" });
       return events;
     }
-
-    const doneData = extractSSEData(block, "done");
-    if (doneData !== null) {
-      return events;
-    }
   } catch (err) {
     if (err instanceof SyntaxError) {
-      console.warn("Malformed SSE data, skipping block:", block.slice(0, 100));
+      console.warn("Malformed SSE data, skipping block");
     } else {
-      console.warn("SSE processing error:", err);
+      throw err;
     }
   }
   return events;
@@ -234,12 +232,12 @@ export async function approveAction(
   action: "approve" | "reject",
   signal?: AbortSignal,
 ): Promise<ChatResult> {
-  const response = await fetch(`${API_BASE}/chat/approve`, {
+  const baseUrl = getApiBase();
+  const url = buildApiUrl(baseUrl, "/chat/approve");
+
+  const response = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
-    },
+    headers: getApiHeaders(),
     body: JSON.stringify({ thread_id: threadId, action }),
     signal,
   });
@@ -266,15 +264,20 @@ export async function uploadDocument(
   threadId: string = "",
   signal?: AbortSignal,
 ): Promise<{ filename: string; chunks: number; total_characters: number }> {
+  const baseUrl = getApiBase();
+  const url = buildApiUrl(baseUrl, "/upload");
+
   const formData = new FormData();
   formData.append("file", file);
   formData.append("thread_id", threadId);
 
-  const response = await fetch(`${API_BASE}/upload`, {
+  const settings = getSettings();
+  const headers: Record<string, string> = {};
+  if (settings.apiKey) headers["X-API-Key"] = settings.apiKey;
+
+  const response = await fetch(url, {
     method: "POST",
-    headers: {
-      ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
-    },
+    headers,
     body: formData,
     signal,
   });

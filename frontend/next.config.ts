@@ -13,9 +13,15 @@ const nextConfig: NextConfig = {
         { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
         {
           key: "Content-Security-Policy",
-          value: isDev
-            ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'"
-            : "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
+          value: [
+            "default-src 'self'",
+            `script-src 'self'${isDev ? " 'unsafe-inline' 'unsafe-eval'" : " 'unsafe-inline'"}`,
+            "style-src 'self' 'unsafe-inline'",
+            `connect-src 'self' http://localhost:* https://localhost:*${isDev ? " ws://localhost:*" : ""}`,
+            "img-src 'self' data: blob:",
+            "font-src 'self' data:",
+            "worker-src 'self' blob:",
+          ].join("; "),
         },
       ],
     },

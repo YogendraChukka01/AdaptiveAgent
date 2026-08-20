@@ -1,3 +1,5 @@
+"use client";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   approveAction,
@@ -13,6 +15,7 @@ interface Props {
 export function ApprovalCard({ payload, onResolved }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -22,6 +25,11 @@ export function ApprovalCard({ payload, onResolved }: Props) {
   }, []);
 
   const handle = useCallback(async (action: "approve" | "reject") => {
+    if (action === "approve" && !confirming) {
+      setConfirming(true);
+      return;
+    }
+
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -36,58 +44,98 @@ export function ApprovalCard({ payload, onResolved }: Props) {
       setError(e instanceof Error ? e.message : "Approval failed");
       setPending(false);
     }
-  }, [payload.thread_id, onResolved]);
+  }, [payload.thread_id, onResolved, confirming]);
 
   return (
-    <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 space-y-3">
+    <div className="rounded-xl border border-[var(--warning)]/30 bg-[var(--accent-subtle)] p-4 space-y-3">
       <div className="flex items-center gap-2">
-        <span className="text-amber-400">⚠️</span>
-        <span className="font-medium text-amber-200">Action requires your approval</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[var(--warning)]">
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+          <path d="M12 9v4M12 17h.01" />
+        </svg>
+        <span className="text-sm font-medium text-[var(--text-primary)]">Action requires approval</span>
       </div>
-      <div className="text-sm text-[var(--text-secondary)] space-y-1">
-        <p>
-          Risk level:{" "}
-          <span className="font-mono text-[var(--text-primary)]">
-            {payload.risk_level ?? "unknown"}
-          </span>{" "}
-          (score {payload.risk_score ?? "?"}) — status:{" "}
-          {payload.approval_status ?? "pending"}
-        </p>
+
+      <div className="text-xs text-[var(--text-secondary)] space-y-1.5">
+        <div className="flex items-center gap-3">
+          <span>Risk level:</span>
+          <span className="font-mono text-[var(--text-primary)]">{payload.risk_level ?? "unknown"}</span>
+          <span>Score: {payload.risk_score ?? "?"}</span>
+        </div>
         {payload.reason && <p>{payload.reason}</p>}
+        {payload.triggering_factors && payload.triggering_factors.length > 0 && (
+          <div>
+            <span>Triggering factors: </span>
+            {payload.triggering_factors.map((f, i) => (
+              <span key={i} className="rounded bg-[var(--bg-tertiary)] px-1.5 py-0.5 text-[10px] mr-1">
+                {f}
+              </span>
+            ))}
+          </div>
+        )}
         {payload.pending_tools && payload.pending_tools.length > 0 && (
-          <p>
-            Tools awaiting review:{" "}
+          <div>
+            <span>Tools: </span>
             {payload.pending_tools.map((t, i) => (
-              <code key={`${t}-${i}`} className="mr-1 rounded bg-black/30 px-1">
+              <code key={`${t}-${i}`} className="rounded bg-[var(--bg-tertiary)] px-1.5 py-0.5 text-[10px] mr-1">
                 {t}
               </code>
             ))}
-          </p>
+          </div>
         )}
-        <p className="text-xs opacity-70">
-          This request was paused before executing any tools. Approve only if you trust the action.
-        </p>
       </div>
-      {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
+
+      {error && (
+        <p role="alert" className="text-xs text-[var(--danger)]">{error}</p>
+      )}
+
       <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => handle("approve")}
-          disabled={pending}
-          aria-label="Approve response"
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
-        >
-          Approve
-        </button>
-        <button
-          type="button"
-          onClick={() => handle("reject")}
-          disabled={pending}
-          aria-label="Reject response"
-          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
-        >
-          Reject
-        </button>
+        {confirming ? (
+          <>
+            <button
+              type="button"
+              onClick={() => handle("approve")}
+              disabled={pending}
+              className="rounded-lg bg-[var(--danger)] px-4 py-1.5 text-xs font-medium text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
+            >
+              {pending ? (
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 animate-spin rounded-full border border-white/30 border-t-white" />
+                  Processing
+                </span>
+              ) : (
+                "Confirm approve"
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              disabled={pending}
+              className="rounded-lg bg-[var(--bg-tertiary)] px-4 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] disabled:opacity-50 transition-colors"
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => handle("approve")}
+              disabled={pending}
+              className="rounded-lg bg-[var(--success)] px-4 py-1.5 text-xs font-medium text-white hover:bg-green-600 disabled:opacity-50 transition-colors"
+            >
+              Approve
+            </button>
+            <button
+              type="button"
+              onClick={() => handle("reject")}
+              disabled={pending}
+              className="rounded-lg bg-[var(--bg-tertiary)] px-4 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] disabled:opacity-50 transition-colors"
+            >
+              Reject
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
