@@ -1,0 +1,372 @@
+# API Versioning: All endpoints are v1 (implicit). Use URL prefix /api/v2/ for breaking changes.
+
+from __future__ import annotations
+
+import json
+import logging
+import time
+import uuid
+from collections.abc import AsyncGenerator
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from langchain_core.runnables import RunnableConfig
+from langgraph.errors import GraphInterrupt
+from langgraph.types import Command
+
+from app.core.auth import require_api_key
+from app.core.config import settings
+from app.core.deps import get_graph
+from app.core.threads import (
+    clear_pending_approval,
+    track_pending_approval,
+)
+from app.graph.builder import CompiledGraph
+from app.models.schemas import ApprovalRequest, ChatRequest
+from app.models.state import AgentState
+from app.services.audit.audit import record_audit
+from app.services.memory.memory import memory_manager
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+def _recursion_limit() -> int:
+    """Safely bound graph execution.
+
+    A single retry-loop pass executes ~12 nodes (step_counter -> validator ->
+    planner -> tool_planner -> retrieval -> evidence -> reasoning -> confidence
+    -> risk -> approval -> tools -> response). With ``max_steps`` allowing up to
+    that many loop iterations, the hard recursion limit must sit well above
+    ``max_steps * 12`` or LangGraph raises ``GraphRecursionError`` *before* the
+    ``step_count`` circuit breaker can stop the loop. The 50 default fails that.
+    """
+    return max(50, settings.max_steps * 15)
+
+
+def _unwrap(result: Any) -> dict[str, Any]:
+    """Normalise a LangGraph invoke result into a plain state dict."""
+    if isinstance(result, dict):
+        return result
+    if hasattr(result, "model_dump"):
+        dump = result.model_dump()
+        if isinstance(dump, dict):
+            return dump
+    return {}
+
+
+def _build_result(values: dict[str, Any], thread_id: str) -> dict[str, Any]:
+    return {
+        "needs_approval": False,
+        "thread_id": thread_id,
+        "response": values.get("final_response", ""),
+        "citations": [
+            c.model_dump() if hasattr(c, "model_dump") else c for c in values.get("citations", [])
+        ],
+        "confidence_score": values.get("confidence_score", 0.0),
+        "risk_score": values.get("risk_score", 0.0),
+        "risk_level": values.get("risk_level", "low"),
+        "reasoning_path": values.get("reasoning_path", []),
+        "eval_score": values.get("eval_score", 0.0),
+        "eval_details": values.get("eval_details", ""),
+        "step_count": values.get("step_count", 0),
+        "approval_status": values.get("approval_status", "completed"),
+    }
+
+
+def _build_approval_payload(
+    values: dict[str, Any], thread_id: str, inter_value: dict[str, Any] | None
+) -> dict[str, Any]:
+    inter_value = inter_value or {}
+    return {
+        "needs_approval": True,
+        "thread_id": thread_id,
+        "risk_level": values.get("risk_level"),
+        "risk_score": values.get("risk_score"),
+        "approval_status": values.get("approval_status"),
+        "reason": inter_value.get("reason"),
+        "pending_tools": inter_value.get("pending_tools", []),
+        "triggering_factors": inter_value.get("triggering_factors", []),
+    }
+
+
+async def _save_turn(
+    session_id: str,
+    role: str,
+    content: str,
+    tool_calls: list[dict[str, Any]] | None = None,
+) -> None:
+    """Save a conversation turn plus any tool calls."""
+    await memory_manager.store_conversation(session_id, role, content)
+    if tool_calls:
+        for tc in tool_calls:
+            entry = {
+                "role": "tool",
+                "tool_name": tc.get("tool_name", "unknown"),
+                "args": tc.get("args"),
+                "result": tc.get("result"),
+            }
+            await memory_manager.store_conversation(session_id, "tool", json.dumps(entry))
+
+
+def _extract_interrupt(result: dict[str, Any] | None, snapshot: Any) -> dict[str, Any] | None:
+    def _as_payload(value: Any) -> dict[str, Any]:
+        return value if isinstance(value, dict) else {"value": value}
+
+    if isinstance(result, dict):
+        interrupts = result.get("__interrupt__")
+        if interrupts:
+            return _as_payload(interrupts[0].value)
+    for task in getattr(snapshot, "tasks", ()) or ():
+        interrupts = getattr(task, "interrupts", None)
+        if interrupts:
+            return _as_payload(interrupts[0].value)
+    return None
+
+
+def _build_audit_payload(
+    thread_id: str,
+    query: str,
+    values: dict[str, Any],
+    start_time: float | None,
+) -> dict[str, Any]:
+    """Build a consistent audit record. Single source of truth for all callers."""
+    return {
+        "thread_id": thread_id,
+        "query": query,
+        "response": values.get("final_response", ""),
+        "risk_score": values.get("risk_score", 0.0),
+        "risk_level": values.get("risk_level", "low"),
+        "confidence_score": values.get("confidence_score", 0.0),
+        # Use the actual resolved approval status from state, not a placeholder.
+        "approval_status": values.get("approval_status", "not_required"),
+        "tool_calls": [
+            t.model_dump() if hasattr(t, "model_dump") else t
+            for t in values.get("tool_calls", [])
+        ],
+        "citations": [
+            c.model_dump() if hasattr(c, "model_dump") else c
+            for c in values.get("citations", [])
+        ],
+        "execution_time_ms": (
+            int((time.time() - start_time) * 1000) if start_time is not None else 0
+        ),
+        "step_count": values.get("step_count", 0),
+    }
+
+
+async def _stream_events(
+    graph: CompiledGraph,
+    state: AgentState,
+    config: RunnableConfig,  # Fix I-04: was dict[str, Any]
+    thread_id: str,
+) -> AsyncGenerator[str, None]:
+    interrupted = False
+    try:
+        async for event in graph.astream_events(  # type: ignore[call-overload]
+            state,
+            config=config,
+            version="v2",
+        ):
+            kind = event.get("event", "")
+            if kind == "on_chain_start":
+                node = event.get("name", "")
+                yield f"event: node_start\ndata: {json.dumps({'node': node})}\n\n"
+            elif kind == "on_chain_end":
+                node = event.get("name", "")
+                yield f"event: node_end\ndata: {json.dumps({'node': node})}\n\n"
+            elif kind == "on_chat_model_stream":
+                data = event.get("data", {})
+                chunk = data.get("chunk", "")
+                if chunk and hasattr(chunk, "content"):
+                    content = chunk.content
+                    if isinstance(content, list):
+                        text_parts = [
+                            b.get("text", "")
+                            for b in content
+                            if isinstance(b, dict) and b.get("type") == "text"
+                        ]
+                        content = "".join(text_parts)
+                    if content:
+                        yield f"event: token\ndata: {json.dumps({'token': content})}\n\n"
+    except GraphInterrupt:
+        interrupted = True
+    except Exception:
+        logger.exception("Graph execution failed for thread %s", thread_id)
+        yield f"event: error\ndata: {json.dumps({'error': 'Internal error during processing'})}\n\n"
+        yield "event: done\ndata: [DONE]\n\n"
+        return
+
+    snapshot = await graph.aget_state(config)  # type: ignore[arg-type]
+
+    if interrupted or snapshot.next:
+        inter_value = _extract_interrupt(None, snapshot)
+        payload = _build_approval_payload(snapshot.values, thread_id, inter_value)
+        await track_pending_approval(
+            thread_id,
+            payload.get("risk_level"),
+            payload.get("risk_score"),
+            state.query or "",
+        )
+        yield f"event: needs_approval\ndata: {json.dumps(payload)}\n\n"
+        yield "event: done\ndata: [DONE]\n\n"
+        return
+
+    values = snapshot.values
+    complete_data = json.dumps(_build_result(values, thread_id))
+    yield f"event: complete\ndata: {complete_data}\n\n"
+
+    response_text = values.get("final_response", "")
+    if response_text:
+        tool_calls_data = [
+            t.model_dump() if hasattr(t, "model_dump") else t for t in values.get("tool_calls", [])
+        ]
+        await _save_turn(thread_id, "user", state.query or "")
+        await _save_turn(thread_id, "assistant", response_text, tool_calls_data)
+
+    await record_audit(_build_audit_payload(thread_id, state.query or "", values, state.start_time))
+
+    yield "event: done\ndata: [DONE]\n\n"
+
+
+@router.post("")
+async def chat(
+    request: ChatRequest,
+    graph: CompiledGraph = Depends(get_graph),
+    _auth: str = Depends(require_api_key),
+) -> StreamingResponse | dict[str, Any]:
+    if not request.thread_id:
+        request.thread_id = str(uuid.uuid4())
+    thread_id = request.thread_id
+
+    if not request.messages:
+        raise HTTPException(status_code=400, detail="messages must not be empty")
+
+    last_msg = request.messages[-1]
+    last_message = last_msg.content
+
+    config: RunnableConfig = {
+        "configurable": {"thread_id": thread_id},
+        "recursion_limit": _recursion_limit(),
+    }
+
+    history = await memory_manager.get_conversation(thread_id)
+    history_messages: list[BaseMessage] = []
+    for m in history:
+        role = m.get("role", "user")
+        content = m.get("content", "")
+        if role == "assistant":
+            history_messages.append(AIMessage(content=content))
+        elif role == "system":
+            from langchain_core.messages import SystemMessage
+
+            history_messages.append(SystemMessage(content=content))
+        else:
+            history_messages.append(HumanMessage(content=content))
+
+    state = AgentState(
+        query=last_message,
+        messages=[*history_messages, HumanMessage(content=last_message)],
+        step_count=0,
+        max_steps=settings.max_steps,
+        start_time=time.time(),
+    )
+
+    if request.stream:
+        return StreamingResponse(
+            _stream_events(graph, state, config, thread_id),  # type: ignore[arg-type]
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
+    try:
+        result = await graph.ainvoke(state, config=config)
+    except GraphInterrupt:
+        snapshot = await graph.aget_state(config)
+        inter_value = _extract_interrupt(None, snapshot)
+        values = snapshot.values
+        payload = _build_approval_payload(values, thread_id, inter_value)
+        await track_pending_approval(
+            thread_id,
+            payload.get("risk_level"),
+            payload.get("risk_score"),
+            last_message,
+        )
+        return payload
+    except Exception:
+        logger.exception("Graph execution failed for thread %s", thread_id)
+        raise HTTPException(status_code=500, detail="Internal error during processing")
+    values = _unwrap(result)
+
+    if isinstance(result, dict) and result.get("__interrupt__"):
+        snapshot = await graph.aget_state(config)
+        inter_value = _extract_interrupt(result, snapshot)
+        payload = _build_approval_payload(values, thread_id, inter_value)
+        await track_pending_approval(
+            thread_id,
+            payload.get("risk_level"),
+            payload.get("risk_score"),
+            last_message,
+        )
+        return payload
+
+    await memory_manager.store_conversation(thread_id, "user", last_message)
+    resp = values.get("final_response", "")
+    tool_calls_data = [
+        t.model_dump() if hasattr(t, "model_dump") else t for t in values.get("tool_calls", [])
+    ]
+    await _save_turn(thread_id, "assistant", resp, tool_calls_data)
+    await record_audit(_build_audit_payload(thread_id, last_message, values, state.start_time))
+
+    return _build_result(values, thread_id)
+
+
+@router.post("/approve")
+async def approve_action(
+    request: ApprovalRequest,
+    graph: CompiledGraph = Depends(get_graph),
+    _auth: str = Depends(require_api_key),
+) -> dict[str, Any]:
+    config: RunnableConfig = {
+        "configurable": {"thread_id": request.thread_id},
+        "recursion_limit": _recursion_limit(),
+    }
+
+    try:
+        await graph.ainvoke(  # type: ignore[call-overload]
+            Command(resume={"approved": request.action == "approve"}),
+            config=config,
+        )
+    except Exception:
+        logger.exception("Approval resume failed for thread %s", request.thread_id)
+        raise HTTPException(status_code=500, detail="Failed to resume approval")
+
+    await clear_pending_approval(request.thread_id)
+
+    try:
+        snapshot = await graph.aget_state(config)  # type: ignore[arg-type]
+    except Exception:
+        logger.exception("Failed to get state for thread %s", request.thread_id)
+        raise HTTPException(status_code=404, detail="Thread not found or expired")
+    values = snapshot.values
+
+    return _build_result(values, request.thread_id)
+
+
+@router.get("/pending")
+async def list_pending_approvals(
+    _auth: str = Depends(require_api_key),
+) -> list[dict[str, Any]]:
+    from app.core.threads import list_pending_approvals as _list
+
+    results = await _list(include_expired=True)
+    return [
+        {k: v for k, v in entry.items() if k not in ("age_seconds", "expired")} for entry in results
+    ]

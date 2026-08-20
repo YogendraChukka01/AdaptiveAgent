@@ -1,0 +1,111 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "adaptive-agent"
+version = "1.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    # ── Core web framework ─────────────────────────────────────────
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "python-multipart>=0.0.12",
+
+    # ── Database ───────────────────────────────────────────────────
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30.0",
+    "psycopg[binary,pool]>=3.2.3",
+    "alembic>=1.14.0",
+
+    # ── Cache / Messaging ──────────────────────────────────────────
+    "redis[asyncio]>=5.2.0",
+
+    # ── LangChain / LangGraph ──────────────────────────────────────
+    "langchain>=0.3.9",
+    "langchain-community>=0.3.9",
+    "langchain-core>=0.3.20",
+    "langgraph>=0.2.56",
+    "langgraph-checkpoint-postgres>=2.0.8",
+    "litellm>=1.55.1",
+
+    # ── Embedding / Reranking (Fix I-05: upgraded to >=1.3) ────────
+    "FlagEmbedding>=1.3",
+    "torch>=2.3.0",
+    "sentence-transformers>=3.3.0",
+
+    # ── Vector stores ──────────────────────────────────────────────
+    "chromadb>=0.6.0",
+
+    # ── Retrieval ──────────────────────────────────────────────────
+    "rank_bm25>=0.2.2",
+
+    # ── Settings / Validation ──────────────────────────────────────
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.6.1",
+
+    # ── Observability (Fix I-16) ───────────────────────────────────
+    "prometheus-fastapi-instrumentator>=7.0.0",
+
+    # ── Rate limiting (Fix I-09) ───────────────────────────────────
+    "slowapi>=0.1.9",
+
+    # ── Document parsing ───────────────────────────────────────────
+    "pypdf>=5.1.0",
+    "python-docx>=1.1.2",
+
+    # ── Web search providers (Fix I-03, install the one you use) ───
+    # "tavily-python>=0.5.0",   # for WEB_SEARCH_PROVIDER=tavily
+    # "httpx>=0.28.0",           # for serpapi / brave providers
+
+    # ── HTTP client ────────────────────────────────────────────────
+    "httpx>=0.28.0",
+
+    # ── LangSmith (optional tracing) ───────────────────────────────
+    "langsmith>=0.2.0",
+]
+
+[project.optional-dependencies]
+# Real web search providers — install the one matching WEB_SEARCH_PROVIDER
+tavily   = ["tavily-python>=0.5.0"]
+serpapi  = ["httpx>=0.28.0"]
+brave    = ["httpx>=0.28.0"]
+
+# Semantic injection detection
+sunglasses = ["sunglasses"]
+
+# Alternative vector stores
+pgvector = ["pgvector>=0.3.6", "psycopg2-binary>=2.9.10"]
+qdrant   = ["qdrant-client>=1.12.0"]
+pinecone = ["pinecone-client>=5.0.0"]
+
+# Development & testing
+dev = [
+    "pytest>=8.3.3",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
+    "httpx>=0.28.0",
+    "mypy>=1.13.0",
+    "ruff>=0.8.0",
+    "pre-commit>=4.0.1",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true
+disallow_untyped_defs = true
+warn_return_any = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]

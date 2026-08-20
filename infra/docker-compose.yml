@@ -1,0 +1,166 @@
+# AdaptiveAgent — Docker Compose
+#
+# Required secrets (set in .env or export before running):
+#   POSTGRES_PASSWORD   — strong random password
+#   API_KEY             — generate: openssl rand -hex 32
+#   AUTH_JWT_SECRET     — generate: openssl rand -hex 32
+#   PGADMIN_EMAIL       — your admin email
+#   PGADMIN_PASSWORD    — strong password for pgAdmin UI
+#
+# Quick start (dev):
+#   cp backend/.env.example backend/.env  # fill in values
+#   docker compose up -d
+
+services:
+  postgres:
+    # Fix I-06: pin to minor version instead of floating "latest"
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      # Fix I-01: credentials come from environment, not hardcoded here
+      POSTGRES_USER: ${POSTGRES_USER:-safeagent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:-safeagent}
+    ports:
+      # Fix I-21: bind only to loopback so DB is not exposed on all interfaces
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-safeagent}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:0.5.13
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-safeagent}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-safeagent}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-safeagent}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-safeagent}
+      REDIS_URL: redis://redis:6379/0
+      OLLAMA_BASE_URL: http://ollama:11434
+      API_KEY: ${API_KEY:-}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-}
+      # Web search (optional)
+      WEB_SEARCH_PROVIDER: ${WEB_SEARCH_PROVIDER:-none}
+      WEB_SEARCH_API_KEY: ${WEB_SEARCH_API_KEY:-}
+      # Tracing (optional)
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-adaptiveagent}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    volumes:
+      - chroma_data:/app/chroma_data
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # pgAdmin — Fix I-21: credentials from env; port bound to loopback only
+  pgadmin:
+    image: dpage/pgadmin4:8
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:?PGADMIN_EMAIL must be set}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?PGADMIN_PASSWORD must be set}
+    ports:
+      # Fix I-21: loopback-only, not exposed to network
+      - "127.0.0.1:5050:80"
+    depends_on:
+      - postgres
+
+  # Prometheus — Fix I-16: wired up to scrape /metrics
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+
+volumes:
+  pgdata:
+  ollama_data:
+  chroma_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
