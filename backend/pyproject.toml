@@ -81,7 +81,7 @@ pinecone = ["pinecone-client>=5.0.0"]
 
 # Development & testing
 dev = [
-    "pytest>=8.3.3",
+    "pytest>=9.1.1",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=6.0.0",
     "pytest-mock>=3.14.0",
