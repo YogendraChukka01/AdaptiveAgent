@@ -14,6 +14,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Cross-platform setup scripts (setup.sh for macOS/Linux, setup.ps1 for Windows)
 - Environment verification script (verify.sh)
 - Professional README with platform-specific setup guides (Windows, macOS, Linux)
+- Reproducible benchmark contract and redistributable evaluation smoke-test dataset
+- Professional demo runbook covering retrieval, evidence, refinement, health, and security-safe recording
+- Release quality gate covering tests, security, evaluation, demo evidence, and semantic versioning
 
 ### Fixed
 - Critical: thread_id state leakage across users
@@ -41,7 +44,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Medium: SidePanel duplicating ChatResult type
 - Medium: missing accessibility attributes
 - Medium: missing CSP security headers
-- Medium:ApprovalCard buttons defaulting to submit type
+- Medium: ApprovalCard buttons defaulting to submit type
 - Low: MessageBubble not memoized
 - Low: input missing maxLength
 - Low: ApprovalCard duplicate tool name keys
