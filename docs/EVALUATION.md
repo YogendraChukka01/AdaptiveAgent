@@ -1,6 +1,6 @@
 # AdaptiveAgent Evaluation Plan
 
-AdaptiveAgent is intended to be evaluated as an engineering system, not only as a demo. This document defines a reproducible evaluation framework for retrieval quality, answer quality, safety, latency, and reliability.
+AdaptiveAgent is evaluated as an engineering system, not only as a demo. The goal is to make retrieval quality, answer quality, safety, latency, and reliability measurable and comparable between versions.
 
 ## Evaluation goals
 
@@ -39,25 +39,21 @@ AdaptiveAgent is intended to be evaluated as an engineering system, not only as 
 
 ## Baselines
 
-Every evaluation run should compare AdaptiveAgent against at least one simpler baseline, for example:
+Every evaluation run should compare AdaptiveAgent against at least one simpler baseline:
 
 - Basic vector retrieval + generation
 - Hybrid retrieval without reranking
 - AdaptiveAgent with reranking and evaluation enabled
 
-Do not publish benchmark numbers until the experiment has been run and the configuration is recorded.
+Do not publish benchmark numbers until the experiment has actually run and the configuration is recorded.
 
-## Dataset format
+## Dataset
 
-Evaluation datasets should contain reproducible question/answer/evidence records. A minimal JSONL record can look like:
+A small, redistributable smoke-test dataset is provided at [`benchmarks/dataset.sample.jsonl`](../benchmarks/dataset.sample.jsonl). It validates the evaluation workflow and expected dataset schema; it is **not** a performance benchmark and must not be presented as one.
 
-```json
-{"id":"q001","question":"...","reference_answer":"...","relevant_documents":["doc-12","doc-18"]}
-```
+For meaningful results, use a larger versioned dataset with manually reviewed relevance labels and reference answers.
 
-Keep private or copyrighted evaluation data outside the repository unless redistribution is permitted.
-
-## Experiment record
+## Result format
 
 For every published result, record:
 
@@ -66,12 +62,15 @@ For every published result, record:
 - Embedding model
 - Reranker model
 - Generator model
+- Judge model, when applicable
 - Retrieval configuration
 - Top-K values
 - Evaluation configuration
 - Hardware/runtime environment
 - Number of examples
 - Timestamp
+
+Store machine-readable results under `benchmarks/results/` when results are available. Do not commit secrets or private evaluation data.
 
 ## Reporting template
 
@@ -91,11 +90,22 @@ For every published result, record:
 
 Evaluation should run before major retrieval, prompting, routing, or model changes are merged. A regression should be investigated when quality decreases materially or latency/error rate increases without an explicit trade-off.
 
-## Next implementation steps
+## Reproduction workflow
 
-- [ ] Add a versioned evaluation dataset.
-- [ ] Add automated retrieval metrics.
-- [ ] Add generation/evidence evaluation.
-- [ ] Add baseline comparison scripts.
-- [ ] Export machine-readable evaluation results.
-- [ ] Publish results with release notes.
+1. Start the documented Docker stack.
+2. Load the versioned evaluation dataset.
+3. Record the exact Git commit.
+4. Record embedding, reranker, generator, and judge models.
+5. Run the baseline.
+6. Run AdaptiveAgent with the same dataset and hardware.
+7. Export machine-readable results.
+8. Review failures and outliers.
+9. Update the report and release notes.
+
+## Demo and release
+
+Use [`docs/DEMO_RUNBOOK.md`](./DEMO_RUNBOOK.md) for the public product demonstration and [`docs/RELEASE_CHECKLIST.md`](./RELEASE_CHECKLIST.md) before publishing a release.
+
+## Status
+
+The evaluation framework and smoke-test dataset are now in place. **Published performance numbers remain intentionally absent until real experiments are executed.**
