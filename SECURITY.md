@@ -1,42 +1,42 @@
 # Security Policy
 
-## Supported Versions
+## Supported versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.x     | ✅ Active support  |
-| < 1.0   | ❌ No longer supported |
+Security fixes are prioritized for the latest version on the `main` branch.
 
-## Reporting a Vulnerability
+| Version | Support |
+| --- | --- |
+| Latest `main` | ✅ Active |
+| Older revisions | ❌ Best effort only |
 
-Please **do not** open a public GitHub issue for security vulnerabilities.
+## Reporting a vulnerability
 
-### Preferred: GitHub Private Advisory
-Use [GitHub's private vulnerability reporting](https://github.com/your-org/AdaptiveAgent/security/advisories/new)
-to submit a report. We will acknowledge within **48 hours** and aim to provide a
-fix or mitigation within **14 days** for critical issues.
+Please **do not open a public GitHub issue** for a security vulnerability.
 
-### Alternative: Email
-Send details to **security@your-org.example.com**
-(replace with your real security contact before publishing).
+Use GitHub's private vulnerability reporting for this repository when available. If private reporting is unavailable, contact the repository maintainer privately through GitHub.
 
 Please include:
-- A description of the vulnerability and its potential impact
-- Steps to reproduce or a proof-of-concept
-- The version of AdaptiveAgent affected
-- Any suggested mitigations
 
-## Disclosure Policy
+- A clear description of the vulnerability and impact
+- Affected component, endpoint, or file
+- Reproduction steps or proof of concept
+- Affected version/commit
+- Suggested mitigation, if known
 
-We follow coordinated disclosure. We ask that you:
-- Give us reasonable time to fix the issue before public disclosure
-- Not exploit the vulnerability beyond what is needed to demonstrate it
+Do not include API keys, passwords, private documents, personal data, or other secrets in a report.
 
-## Security Considerations for Operators
+## Disclosure
 
-- Set `ENVIRONMENT=production` to enable startup security checks
-- Generate strong secrets: `openssl rand -hex 32`
-- Never commit `.env` files to source control
-- Bind service ports to loopback (`127.0.0.1`) behind a reverse proxy in production
-- Enable rate limiting (`RATE_LIMIT_ENABLED=true`)
-- Install `sunglasses` for semantic prompt-injection detection
+Please allow reasonable time for investigation and remediation before publicly disclosing a vulnerability. We will coordinate disclosure with the reporter when appropriate.
+
+## Deployment security
+
+Operators should:
+
+- Never commit `.env` files, API keys, tokens, or credentials.
+- Use strong, unique application secrets in production.
+- Keep externally exposed services behind appropriate authentication and network controls.
+- Enable rate limiting where appropriate.
+- Review model-provider and tool permissions before deploying agents with access to private data or external systems.
+- Treat retrieved documents and tool outputs as untrusted input and defend against prompt injection.
+- Keep dependencies and container images updated.
