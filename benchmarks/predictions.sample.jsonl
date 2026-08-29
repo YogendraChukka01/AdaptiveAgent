@@ -1,0 +1,5 @@
+{"id":"q001","relevant_documents":["README.md","docs/EVALUATION.md"],"retrieved_documents":["README.md","docs/EVALUATION.md","AGENTS.md"]}
+{"id":"q002","relevant_documents":["docs/EVALUATION.md"],"retrieved_documents":["docs/EVALUATION.md","README.md","AGENTS.md"]}
+{"id":"q003","relevant_documents":["AGENTS.md","README.md"],"retrieved_documents":["AGENTS.md","README.md","docs/EVALUATION.md"]}
+{"id":"q004","relevant_documents":["README.md","AGENTS.md"],"retrieved_documents":["README.md","AGENTS.md","docs/EVALUATION.md"]}
+{"id":"q005","relevant_documents":["docs/EVALUATION.md"],"retrieved_documents":["docs/EVALUATION.md","README.md","AGENTS.md"]}
