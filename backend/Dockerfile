@@ -1,7 +1,7 @@
 # ── Builder stage ─────────────────────────────────────────────────────────────
 # Fix I-06: pin to minor version (no digest here for readability,
 # but in production add @sha256:<digest>)
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 # Install OS build deps (including libpq-dev for psycopg)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir --prefix=/install "."
 COPY . .
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libpq5 \
