@@ -76,7 +76,7 @@ sunglasses = ["sunglasses"]
 
 # Alternative vector stores
 pgvector = ["pgvector>=0.3.6", "psycopg2-binary>=2.9.10"]
-qdrant   = ["qdrant-client>=1.12.0"]
+qdrant   = ["qdrant-client>=1.19.0"]
 pinecone = ["pinecone-client>=5.0.0"]
 
 # Development & testing
