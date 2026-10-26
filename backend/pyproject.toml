@@ -45,7 +45,7 @@ dependencies = [
     "pydantic-settings>=2.6.1",
 
     # ── Observability (Fix I-16) ───────────────────────────────────
-    "prometheus-fastapi-instrumentator>=7.0.0",
+    "prometheus-fastapi-instrumentator>=8.1.0",
 
     # ── Rate limiting (Fix I-09) ───────────────────────────────────
     "slowapi>=0.1.9",
